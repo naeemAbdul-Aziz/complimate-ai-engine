@@ -1,0 +1,42 @@
+{
+    "contract_name": "sample-contract.pdf",
+    "contract_path": "data/contracts\\sample-contract.pdf",
+    "regulation_file": "data/regulations/li_2204.pdf",
+    "total_prompts_sent": 6,
+    "successful_responses": 6,
+    "potential_violations_found": 4,
+    "violations": [
+        {
+            "description": "* (Missing Obligation) The contract clause does not mention the requirement for a local content plan with sub-plans for Employment and Training, Research and Development, Technology Transfer, Legal Services, and Financial Services as required by the regulation.\n* (Missing Obligation) The contract clause does not specify the minimum local content levels for the petroleum activity as required by the regulation.\n* (Missing Obligation) The contract clause does not mention the requirement for the contractor to establish and implement a bidding process for the acquisition of goods and services to give preference to indigenous Ghanaian companies as required by the regulation.\n* (Missing Obligation) The contract clause does not mention the requirement for the contractor to inform the Commission in writing of each proposed contract or purchase order related to petroleum activities which is to be sole sourced or where it is to be sourced by a competitive bidding procedure that is estimated to be in excess of the cedi equivalent of one hundred thousand United States Dollars as required by the regulation.\n* (Missing Obligation) The contract clause does not mention the requirement for the contractor to submit the documents for the approval of the Commission as required by the regulation.\n* (Missing Obligation) The contract clause does not mention the requirement for the contractor to submit quarterly forecasts as required by the regulation.\n* (Ambiguity) The contract clause states that local firms shall be given first preference in subcontracting opportunities, but the regulation requires a more specific process for giving preference to indigenous Ghanaian companies, including not awarding a contract based solely on the principle of the lowest bidder. The contract clause does not specify how this preference will be given, which could lead to ambiguity in interpretation.",
+            "type": "Potential Violation",
+            "contract_node_id": "59ad0980-bf4f-4793-b735-f2b319782da1",
+            "regulation_node_id": null,
+            "contract_snippet": "PETROLEUM SERVICES AGREEMENT\nThis Agreement is made on the 10th day of March 2025 between:\n1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the \"Contractor\"), and\n2. GHANA NATION...",
+            "regulation_snippet": "(3) Without limiting subregulations (1) and (2), a local content plan \nshaU have the following sub-plans: - -\n(a) an Employment and Training Sub-Plan as provided in regu­\nlation 17; \n(b) a Research an..."
+        },
+        {
+            "description": "* (Missing Obligation) The contract clause does not mention the requirement for the Contractor to maintain a bank account with an indigenous Ghanaian bank and transact business through banks in the country as required by regulation 33 of the excerpt.\n* (Missing Obligation) The contract clause does not specify that the Contractor should submit an annual Local Content Performance Report covering all its projects and activities for the year under review within forty-five days of the beginning of each year after commencement of petroleum activities as required by regulation 34 of the excerpt.\n* (Missing Obligation) The contract clause does not mention the requirement for the Contractor to ensure that its partners, contractors, subcontractors and allied entity are contractually bound to report local content information to the Contractor and, if requested, to the Commission as required by regulation 36 of the excerpt.\n* (Ambiguity) The contract clause states that the Contractor shall submit quarterly reports on local content performance to the Petroleum Commission. However, the regulation excerpt requires an annual Local Content Performance Report. This could create confusion about the frequency and timing of the reports.\n* (Non-compliant Clause) The contract clause states that failure to adhere to local content or tax requirements shall constitute grounds for contract termination and may result in regulatory penalties. However, the regulation excerpt does not specify contract termination as a consequence of non-compliance. This could be seen as an overreach on the part of the Client.",
+            "type": "Potential Violation",
+            "contract_node_id": "59ad0980-bf4f-4793-b735-f2b319782da1",
+            "regulation_node_id": null,
+            "contract_snippet": "PETROLEUM SERVICES AGREEMENT\nThis Agreement is made on the 10th day of March 2025 between:\n1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the \"Contractor\"), and\n2. GHANA NATION...",
+            "regulation_snippet": "2204 \n18 \nPETROLEUM (LOCAL CONTENT AND LOCAL \nPARTICIPATION) REGULATIONS, 2013 \n(b) forecast of legal services required during the ensuing six \n,:?: months where applicable, and the projected expendit..."
+        },
+        {
+            "description": "\"No issues found.\"",
+            "type": "Potential Violation",
+            "contract_node_id": "032a7ecf-651e-4071-9f2b-5d51a3d289ad",
+            "regulation_node_id": null,
+            "contract_snippet": "Position: _____________________\nSignature: ____________________\nFor and on behalf of:\nGHANA NATIONAL PETROLEUM CORPORATION\nName: _______________________\nPosition: _____________________\nSignature: ____...",
+            "regulation_snippet": "(2) The contractor, subcontractor, licensee or other allied entity \nshall provide to the Commission a quarterly report on \n(a) employment and training activities for the reporting period; \nand \nL.I. 2..."
+        },
+        {
+            "description": "\"No issues found.\"",
+            "type": "Potential Violation",
+            "contract_node_id": "032a7ecf-651e-4071-9f2b-5d51a3d289ad",
+            "regulation_node_id": null,
+            "contract_snippet": "Position: _____________________\nSignature: ____________________\nFor and on behalf of:\nGHANA NATIONAL PETROLEUM CORPORATION\nName: _______________________\nPosition: _____________________\nSignature: ____...",
+            "regulation_snippet": "A list of bidders; \n2. A copy of the Request for Proposals or Request for Qualification \nin respect of which the Commission will advise the licensee or \ncontractor of its requirements on a case by cas..."
+        }
+    ]
+}

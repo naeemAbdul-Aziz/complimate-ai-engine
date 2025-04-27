@@ -1,0 +1,68 @@
+Contract Name: sample-contract.pdf
+Total Violations Found: 4
+
+Detailed Violations:
+  1. Type: Potential Violation
+     Description: * (Missing Obligation) The contract clause does not mention the requirement for a local content plan with sub-plans for Employment and Training, Research and Development, Technology Transfer, Legal Services, and Financial Services as required by the regulation.
+* (Missing Obligation) The contract clause does not specify the minimum local content levels for the petroleum activity as required by the regulation.
+* (Missing Obligation) The contract clause does not mention the requirement for the contractor to establish and implement a bidding process for the acquisition of goods and services to give preference to indigenous Ghanaian companies as required by the regulation.
+* (Missing Obligation) The contract clause does not mention the requirement for the contractor to inform the Commission in writing of each proposed contract or purchase order related to petroleum activities which is to be sole sourced or where it is to be sourced by a competitive bidding procedure that is estimated to be in excess of the cedi equivalent of one hundred thousand United States Dollars as required by the regulation.
+* (Missing Obligation) The contract clause does not mention the requirement for the contractor to submit the documents for the approval of the Commission as required by the regulation.
+* (Missing Obligation) The contract clause does not mention the requirement for the contractor to submit quarterly forecasts as required by the regulation.
+* (Ambiguity) The contract clause states that local firms shall be given first preference in subcontracting opportunities, but the regulation requires a more specific process for giving preference to indigenous Ghanaian companies, including not awarding a contract based solely on the principle of the lowest bidder. The contract clause does not specify how this preference will be given, which could lead to ambiguity in interpretation.
+     Contract Snippet: PETROLEUM SERVICES AGREEMENT
+This Agreement is made on the 10th day of March 2025 between:
+1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the "Contractor"), and
+2. GHANA NATION...
+     Regulation Snippet: (3) Without limiting subregulations (1) and (2), a local content plan 
+shaU have the following sub-plans: - -
+(a) an Employment and Training Sub-Plan as provided in regu­
+lation 17; 
+(b) a Research an...
+
+  2. Type: Potential Violation
+     Description: * (Missing Obligation) The contract clause does not mention the requirement for the Contractor to maintain a bank account with an indigenous Ghanaian bank and transact business through banks in the country as required by regulation 33 of the excerpt.
+* (Missing Obligation) The contract clause does not specify that the Contractor should submit an annual Local Content Performance Report covering all its projects and activities for the year under review within forty-five days of the beginning of each year after commencement of petroleum activities as required by regulation 34 of the excerpt.
+* (Missing Obligation) The contract clause does not mention the requirement for the Contractor to ensure that its partners, contractors, subcontractors and allied entity are contractually bound to report local content information to the Contractor and, if requested, to the Commission as required by regulation 36 of the excerpt.
+* (Ambiguity) The contract clause states that the Contractor shall submit quarterly reports on local content performance to the Petroleum Commission. However, the regulation excerpt requires an annual Local Content Performance Report. This could create confusion about the frequency and timing of the reports.
+* (Non-compliant Clause) The contract clause states that failure to adhere to local content or tax requirements shall constitute grounds for contract termination and may result in regulatory penalties. However, the regulation excerpt does not specify contract termination as a consequence of non-compliance. This could be seen as an overreach on the part of the Client.
+     Contract Snippet: PETROLEUM SERVICES AGREEMENT
+This Agreement is made on the 10th day of March 2025 between:
+1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the "Contractor"), and
+2. GHANA NATION...
+     Regulation Snippet: 2204 
+18 
+PETROLEUM (LOCAL CONTENT AND LOCAL 
+PARTICIPATION) REGULATIONS, 2013 
+(b) forecast of legal services required during the ensuing six 
+,:?: months where applicable, and the projected expendit...
+
+  3. Type: Potential Violation
+     Description: "No issues found."
+     Contract Snippet: Position: _____________________
+Signature: ____________________
+For and on behalf of:
+GHANA NATIONAL PETROLEUM CORPORATION
+Name: _______________________
+Position: _____________________
+Signature: ____...
+     Regulation Snippet: (2) The contractor, subcontractor, licensee or other allied entity 
+shall provide to the Commission a quarterly report on 
+(a) employment and training activities for the reporting period; 
+and 
+L.I. 2...
+
+  4. Type: Potential Violation
+     Description: "No issues found."
+     Contract Snippet: Position: _____________________
+Signature: ____________________
+For and on behalf of:
+GHANA NATIONAL PETROLEUM CORPORATION
+Name: _______________________
+Position: _____________________
+Signature: ____...
+     Regulation Snippet: A list of bidders; 
+2. A copy of the Request for Proposals or Request for Qualification 
+in respect of which the Commission will advise the licensee or 
+contractor of its requirements on a case by cas...
+
