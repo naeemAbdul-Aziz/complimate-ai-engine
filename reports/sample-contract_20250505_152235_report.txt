@@ -1,0 +1,72 @@
+Compliance Analysis Report
+==========================
+Contract: sample-contract.pdf
+Regulation: data/regulations/li_2204.pdf
+Analysis Date: 2025-05-05 15:23:47
+Prompts Sent: 10 | Successful LLM Responses: 10
+Potential Issues Found: 14
+
+Issues by Severity:
+  High:   13
+  Medium: 1
+  Low:    0
+  N/A/Other: 0
+
+Detailed Issues:
+----------------
+1. [High] Missing Obligation
+   Issue: The contract clause does not mention the requirement for a local content plan which should include an Employment and Training Sub-Plan, a Research and Development Sub-Plan, a Technology Transfer Sub-Plan, a Legal Services Sub-Plan, and a Financial Services Sub-Plan.
+   Regulation Ref: Subregulations (3)(a), (3)(b), (3)(c), (3)(d), and (3)(e)
+
+2. [High] Missing Obligation
+   Issue: The contract clause does not specify the minimum local content levels for the petroleum activity as required by the regulation.
+   Regulation Ref: Subregulation 10(1), 10(2), and 10(3)
+
+3. [High] Missing Obligation
+   Issue: The contract clause does not establish a bidding process for the acquisition of goods and services to give preference to indigenous Ghanaian companies.
+   Regulation Ref: Regulation 11
+
+4. [High] Missing Obligation
+   Issue: The contract clause does not specify the basis of bid evaluation as required by the regulation.
+   Regulation Ref: Subregulation 12(1), 12(2), 12(3), 12(4), and 12(5)
+
+5. [High] Missing Obligation
+   Issue: The contract clause does not mention the requirement to inform the Commission in writing of each proposed contract or purchase order related to petroleum activities which is to be sole sourced or where it is to be sourced by a competitive bidding procedure that is estimated to be in excess of the cedi equivalent of one hundred thousand United States Dollars.
+   Regulation Ref: Subregulation 13(1)
+
+6. [High] Missing Obligation
+   Issue: The contract clause does not mention the requirement to submit the following documents for the approval of the Commission: advertisements relating to expression of interest; requests for proposals; prequalification criteria; technical bid documents; technical evaluation criteria; and any other information requested by the Commission to enable the Commission determine that the local content requirements have been complied with.
+   Regulation Ref: Subregulation 13(2)
+
+7. [Medium] Non-compliant Clause
+   Issue: The contract clause specifies quarterly reporting, while the regulation excerpt mandates an annual Local Content Performance Report.
+   Regulation Ref: Regulation 34
+
+8. [High] Missing Obligation
+   Issue: The contract clause omits the requirement to maintain a bank account with an indigenous Ghanaian bank and transact business through banks in the country.
+   Regulation Ref: Regulation 33
+
+9. [High] Missing Obligation
+   Issue: The contract clause does not specify that the contractor, subcontractor, licensee or other allied entity shall ensure that its partners, contractors, subcontractors and allied entity are contractually bound to report local content information to the contractor, subcontractor, licensee or other allied entity and, if requested, to the Commission.
+   Regulation Ref: Regulation 36
+
+10. [High] Missing Obligation
+   Issue: The contract clause does not specify that the contractor, subcontractor, licensee or other allied entity shall allow an agent or official designated by the Commission access to the records of the contractor, subcontractor, licensee or an allied entity for purposes of assessment and verification of the local content information reported to the contractor, subcontractor, licensee or other allied entity or the Commission.
+   Regulation Ref: Regulation 36(2)
+
+11. [High] Missing Obligation
+   Issue: The contract clause does not mention any obligations regarding technology transfer programmes and reports as required by the regulation.
+   Regulation Ref: Regulations 22, 23, 24, 25, 26
+
+12. [High] Missing Obligation
+   Issue: The contract clause does not specify the requirement for insurable risks relating to petroleum activity to be insured through an indigenous brokerage firm or where applicable, a reinsurance broker.
+   Regulation Ref: Regulation 27
+
+13. [High] Missing Obligation
+   Issue: The contract clause does not mention the requirement for legal services to be retained only from a Ghanaian legal practitioner or a firm of Ghanaian legal practitioners whose principal office is located in the country.
+   Regulation Ref: Regulation 29
+
+14. [High] Missing Obligation
+   Issue: The contract clause does not mention the requirement for financial services to be retained only from a Ghanaian financial institution or organisation.
+   Regulation Ref: Regulation 31
+

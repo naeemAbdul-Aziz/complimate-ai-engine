@@ -1,0 +1,166 @@
+{
+    "contract_name": "sample-contract.pdf",
+    "contract_path": "data/contracts\\sample-contract.pdf",
+    "regulation_file": "data/regulations/li_2204.pdf",
+    "analysis_timestamp": "2025-05-05T15:23:47.093944",
+    "total_prompts_sent": 10,
+    "successful_responses": 10,
+    "failed_responses": 0,
+    "potential_issues_found": 14,
+    "violations": [
+        {
+            "description": "The contract clause does not mention the requirement for a local content plan which should include an Employment and Training Sub-Plan, a Research and Development Sub-Plan, a Technology Transfer Sub-Plan, a Legal Services Sub-Plan, and a Financial Services Sub-Plan.",
+            "category": "Missing Obligation",
+            "regulation_ref": "Subregulations (3)(a), (3)(b), (3)(c), (3)(d), and (3)(e)",
+            "severity": "High",
+            "type": "Potential Compliance Issue",
+            "contract_node_id": "0292b710-5652-408b-a96e-f040dca140a1",
+            "regulation_node_id": null,
+            "contract_snippet": "PETROLEUM SERVICES AGREEMENT\nThis Agreement is made on the 10th day of March 2025 between:\n1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the \"Contractor\"), and\n2. GHANA NATIONAL PETROLEUM CORPORATION (GNPC), a statutory corporation established \nunder the GNPC Act (the \"Clien...",
+            "regulation_snippet": "(3) Without limiting subregulations (1) and (2), a local content plan \nshaU have the following sub-plans: - -\n(a) an Employment and Training Sub-Plan as provided in regu­\nlation 17; \n(b) a Research and Development Sub-Plan as provided in regu­\nlation 21; - :*Oi:ft>^^:.¥^ nr jHi lt> \n(c) a Technology..."
+        },
+        {
+            "description": "The contract clause does not specify the minimum local content levels for the petroleum activity as required by the regulation.",
+            "category": "Missing Obligation",
+            "regulation_ref": "Subregulation 10(1), 10(2), and 10(3)",
+            "severity": "High",
+            "type": "Potential Compliance Issue",
+            "contract_node_id": "0292b710-5652-408b-a96e-f040dca140a1",
+            "regulation_node_id": null,
+            "contract_snippet": "PETROLEUM SERVICES AGREEMENT\nThis Agreement is made on the 10th day of March 2025 between:\n1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the \"Contractor\"), and\n2. GHANA NATIONAL PETROLEUM CORPORATION (GNPC), a statutory corporation established \nunder the GNPC Act (the \"Clien...",
+            "regulation_snippet": "(3) Without limiting subregulations (1) and (2), a local content plan \nshaU have the following sub-plans: - -\n(a) an Employment and Training Sub-Plan as provided in regu­\nlation 17; \n(b) a Research and Development Sub-Plan as provided in regu­\nlation 21; - :*Oi:ft>^^:.¥^ nr jHi lt> \n(c) a Technology..."
+        },
+        {
+            "description": "The contract clause does not establish a bidding process for the acquisition of goods and services to give preference to indigenous Ghanaian companies.",
+            "category": "Missing Obligation",
+            "regulation_ref": "Regulation 11",
+            "severity": "High",
+            "type": "Potential Compliance Issue",
+            "contract_node_id": "0292b710-5652-408b-a96e-f040dca140a1",
+            "regulation_node_id": null,
+            "contract_snippet": "PETROLEUM SERVICES AGREEMENT\nThis Agreement is made on the 10th day of March 2025 between:\n1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the \"Contractor\"), and\n2. GHANA NATIONAL PETROLEUM CORPORATION (GNPC), a statutory corporation established \nunder the GNPC Act (the \"Clien...",
+            "regulation_snippet": "(3) Without limiting subregulations (1) and (2), a local content plan \nshaU have the following sub-plans: - -\n(a) an Employment and Training Sub-Plan as provided in regu­\nlation 17; \n(b) a Research and Development Sub-Plan as provided in regu­\nlation 21; - :*Oi:ft>^^:.¥^ nr jHi lt> \n(c) a Technology..."
+        },
+        {
+            "description": "The contract clause does not specify the basis of bid evaluation as required by the regulation.",
+            "category": "Missing Obligation",
+            "regulation_ref": "Subregulation 12(1), 12(2), 12(3), 12(4), and 12(5)",
+            "severity": "High",
+            "type": "Potential Compliance Issue",
+            "contract_node_id": "0292b710-5652-408b-a96e-f040dca140a1",
+            "regulation_node_id": null,
+            "contract_snippet": "PETROLEUM SERVICES AGREEMENT\nThis Agreement is made on the 10th day of March 2025 between:\n1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the \"Contractor\"), and\n2. GHANA NATIONAL PETROLEUM CORPORATION (GNPC), a statutory corporation established \nunder the GNPC Act (the \"Clien...",
+            "regulation_snippet": "(3) Without limiting subregulations (1) and (2), a local content plan \nshaU have the following sub-plans: - -\n(a) an Employment and Training Sub-Plan as provided in regu­\nlation 17; \n(b) a Research and Development Sub-Plan as provided in regu­\nlation 21; - :*Oi:ft>^^:.¥^ nr jHi lt> \n(c) a Technology..."
+        },
+        {
+            "description": "The contract clause does not mention the requirement to inform the Commission in writing of each proposed contract or purchase order related to petroleum activities which is to be sole sourced or where it is to be sourced by a competitive bidding procedure that is estimated to be in excess of the cedi equivalent of one hundred thousand United States Dollars.",
+            "category": "Missing Obligation",
+            "regulation_ref": "Subregulation 13(1)",
+            "severity": "High",
+            "type": "Potential Compliance Issue",
+            "contract_node_id": "0292b710-5652-408b-a96e-f040dca140a1",
+            "regulation_node_id": null,
+            "contract_snippet": "PETROLEUM SERVICES AGREEMENT\nThis Agreement is made on the 10th day of March 2025 between:\n1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the \"Contractor\"), and\n2. GHANA NATIONAL PETROLEUM CORPORATION (GNPC), a statutory corporation established \nunder the GNPC Act (the \"Clien...",
+            "regulation_snippet": "(3) Without limiting subregulations (1) and (2), a local content plan \nshaU have the following sub-plans: - -\n(a) an Employment and Training Sub-Plan as provided in regu­\nlation 17; \n(b) a Research and Development Sub-Plan as provided in regu­\nlation 21; - :*Oi:ft>^^:.¥^ nr jHi lt> \n(c) a Technology..."
+        },
+        {
+            "description": "The contract clause does not mention the requirement to submit the following documents for the approval of the Commission: advertisements relating to expression of interest; requests for proposals; prequalification criteria; technical bid documents; technical evaluation criteria; and any other information requested by the Commission to enable the Commission determine that the local content requirements have been complied with.",
+            "category": "Missing Obligation",
+            "regulation_ref": "Subregulation 13(2)",
+            "severity": "High",
+            "type": "Potential Compliance Issue",
+            "contract_node_id": "0292b710-5652-408b-a96e-f040dca140a1",
+            "regulation_node_id": null,
+            "contract_snippet": "PETROLEUM SERVICES AGREEMENT\nThis Agreement is made on the 10th day of March 2025 between:\n1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the \"Contractor\"), and\n2. GHANA NATIONAL PETROLEUM CORPORATION (GNPC), a statutory corporation established \nunder the GNPC Act (the \"Clien...",
+            "regulation_snippet": "(3) Without limiting subregulations (1) and (2), a local content plan \nshaU have the following sub-plans: - -\n(a) an Employment and Training Sub-Plan as provided in regu­\nlation 17; \n(b) a Research and Development Sub-Plan as provided in regu­\nlation 21; - :*Oi:ft>^^:.¥^ nr jHi lt> \n(c) a Technology..."
+        },
+        {
+            "description": "The contract clause specifies quarterly reporting, while the regulation excerpt mandates an annual Local Content Performance Report.",
+            "category": "Non-compliant Clause",
+            "regulation_ref": "Regulation 34",
+            "severity": "Medium",
+            "type": "Potential Compliance Issue",
+            "contract_node_id": "0292b710-5652-408b-a96e-f040dca140a1",
+            "regulation_node_id": null,
+            "contract_snippet": "PETROLEUM SERVICES AGREEMENT\nThis Agreement is made on the 10th day of March 2025 between:\n1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the \"Contractor\"), and\n2. GHANA NATIONAL PETROLEUM CORPORATION (GNPC), a statutory corporation established \nunder the GNPC Act (the \"Clien...",
+            "regulation_snippet": "2204 \n18 \nPETROLEUM (LOCAL CONTENT AND LOCAL \nPARTICIPATION) REGULATIONS, 2013 \n(b) forecast of legal services required during the ensuing six \n,:?: months where applicable, and the projected expenditure for \n-::'vu.i-ju the services; and \n' ' (c) the annual legal services budget for the ensuing yea..."
+        },
+        {
+            "description": "The contract clause omits the requirement to maintain a bank account with an indigenous Ghanaian bank and transact business through banks in the country.",
+            "category": "Missing Obligation",
+            "regulation_ref": "Regulation 33",
+            "severity": "High",
+            "type": "Potential Compliance Issue",
+            "contract_node_id": "0292b710-5652-408b-a96e-f040dca140a1",
+            "regulation_node_id": null,
+            "contract_snippet": "PETROLEUM SERVICES AGREEMENT\nThis Agreement is made on the 10th day of March 2025 between:\n1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the \"Contractor\"), and\n2. GHANA NATIONAL PETROLEUM CORPORATION (GNPC), a statutory corporation established \nunder the GNPC Act (the \"Clien...",
+            "regulation_snippet": "2204 \n18 \nPETROLEUM (LOCAL CONTENT AND LOCAL \nPARTICIPATION) REGULATIONS, 2013 \n(b) forecast of legal services required during the ensuing six \n,:?: months where applicable, and the projected expenditure for \n-::'vu.i-ju the services; and \n' ' (c) the annual legal services budget for the ensuing yea..."
+        },
+        {
+            "description": "The contract clause does not specify that the contractor, subcontractor, licensee or other allied entity shall ensure that its partners, contractors, subcontractors and allied entity are contractually bound to report local content information to the contractor, subcontractor, licensee or other allied entity and, if requested, to the Commission.",
+            "category": "Missing Obligation",
+            "regulation_ref": "Regulation 36",
+            "severity": "High",
+            "type": "Potential Compliance Issue",
+            "contract_node_id": "0292b710-5652-408b-a96e-f040dca140a1",
+            "regulation_node_id": null,
+            "contract_snippet": "PETROLEUM SERVICES AGREEMENT\nThis Agreement is made on the 10th day of March 2025 between:\n1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the \"Contractor\"), and\n2. GHANA NATIONAL PETROLEUM CORPORATION (GNPC), a statutory corporation established \nunder the GNPC Act (the \"Clien...",
+            "regulation_snippet": "2204 \n18 \nPETROLEUM (LOCAL CONTENT AND LOCAL \nPARTICIPATION) REGULATIONS, 2013 \n(b) forecast of legal services required during the ensuing six \n,:?: months where applicable, and the projected expenditure for \n-::'vu.i-ju the services; and \n' ' (c) the annual legal services budget for the ensuing yea..."
+        },
+        {
+            "description": "The contract clause does not specify that the contractor, subcontractor, licensee or other allied entity shall allow an agent or official designated by the Commission access to the records of the contractor, subcontractor, licensee or an allied entity for purposes of assessment and verification of the local content information reported to the contractor, subcontractor, licensee or other allied entity or the Commission.",
+            "category": "Missing Obligation",
+            "regulation_ref": "Regulation 36(2)",
+            "severity": "High",
+            "type": "Potential Compliance Issue",
+            "contract_node_id": "0292b710-5652-408b-a96e-f040dca140a1",
+            "regulation_node_id": null,
+            "contract_snippet": "PETROLEUM SERVICES AGREEMENT\nThis Agreement is made on the 10th day of March 2025 between:\n1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the \"Contractor\"), and\n2. GHANA NATIONAL PETROLEUM CORPORATION (GNPC), a statutory corporation established \nunder the GNPC Act (the \"Clien...",
+            "regulation_snippet": "2204 \n18 \nPETROLEUM (LOCAL CONTENT AND LOCAL \nPARTICIPATION) REGULATIONS, 2013 \n(b) forecast of legal services required during the ensuing six \n,:?: months where applicable, and the projected expenditure for \n-::'vu.i-ju the services; and \n' ' (c) the annual legal services budget for the ensuing yea..."
+        },
+        {
+            "description": "The contract clause does not mention any obligations regarding technology transfer programmes and reports as required by the regulation.",
+            "category": "Missing Obligation",
+            "regulation_ref": "Regulations 22, 23, 24, 25, 26",
+            "severity": "High",
+            "type": "Potential Compliance Issue",
+            "contract_node_id": "0292b710-5652-408b-a96e-f040dca140a1",
+            "regulation_node_id": null,
+            "contract_snippet": "PETROLEUM SERVICES AGREEMENT\nThis Agreement is made on the 10th day of March 2025 between:\n1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the \"Contractor\"), and\n2. GHANA NATIONAL PETROLEUM CORPORATION (GNPC), a statutory corporation established \nunder the GNPC Act (the \"Clien...",
+            "regulation_snippet": "Technology transfer programmes and reports ' \nNational plan on technology transfer \n22. The Commission shall in consultation with the National Devel­\nopment Planning Commission, relevant Ministries, Departments and \nAgencies identified by the Commission \nL.I. 2204 \n16 \nPETROLEUM (LOCAL CONTENT AND L..."
+        },
+        {
+            "description": "The contract clause does not specify the requirement for insurable risks relating to petroleum activity to be insured through an indigenous brokerage firm or where applicable, a reinsurance broker.",
+            "category": "Missing Obligation",
+            "regulation_ref": "Regulation 27",
+            "severity": "High",
+            "type": "Potential Compliance Issue",
+            "contract_node_id": "0292b710-5652-408b-a96e-f040dca140a1",
+            "regulation_node_id": null,
+            "contract_snippet": "PETROLEUM SERVICES AGREEMENT\nThis Agreement is made on the 10th day of March 2025 between:\n1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the \"Contractor\"), and\n2. GHANA NATIONAL PETROLEUM CORPORATION (GNPC), a statutory corporation established \nunder the GNPC Act (the \"Clien...",
+            "regulation_snippet": "Technology transfer programmes and reports ' \nNational plan on technology transfer \n22. The Commission shall in consultation with the National Devel­\nopment Planning Commission, relevant Ministries, Departments and \nAgencies identified by the Commission \nL.I. 2204 \n16 \nPETROLEUM (LOCAL CONTENT AND L..."
+        },
+        {
+            "description": "The contract clause does not mention the requirement for legal services to be retained only from a Ghanaian legal practitioner or a firm of Ghanaian legal practitioners whose principal office is located in the country.",
+            "category": "Missing Obligation",
+            "regulation_ref": "Regulation 29",
+            "severity": "High",
+            "type": "Potential Compliance Issue",
+            "contract_node_id": "0292b710-5652-408b-a96e-f040dca140a1",
+            "regulation_node_id": null,
+            "contract_snippet": "PETROLEUM SERVICES AGREEMENT\nThis Agreement is made on the 10th day of March 2025 between:\n1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the \"Contractor\"), and\n2. GHANA NATIONAL PETROLEUM CORPORATION (GNPC), a statutory corporation established \nunder the GNPC Act (the \"Clien...",
+            "regulation_snippet": "Technology transfer programmes and reports ' \nNational plan on technology transfer \n22. The Commission shall in consultation with the National Devel­\nopment Planning Commission, relevant Ministries, Departments and \nAgencies identified by the Commission \nL.I. 2204 \n16 \nPETROLEUM (LOCAL CONTENT AND L..."
+        },
+        {
+            "description": "The contract clause does not mention the requirement for financial services to be retained only from a Ghanaian financial institution or organisation.",
+            "category": "Missing Obligation",
+            "regulation_ref": "Regulation 31",
+            "severity": "High",
+            "type": "Potential Compliance Issue",
+            "contract_node_id": "0292b710-5652-408b-a96e-f040dca140a1",
+            "regulation_node_id": null,
+            "contract_snippet": "PETROLEUM SERVICES AGREEMENT\nThis Agreement is made on the 10th day of March 2025 between:\n1. OILTECH GHANA LTD., a company incorporated under the laws of Ghana (the \"Contractor\"), and\n2. GHANA NATIONAL PETROLEUM CORPORATION (GNPC), a statutory corporation established \nunder the GNPC Act (the \"Clien...",
+            "regulation_snippet": "Technology transfer programmes and reports ' \nNational plan on technology transfer \n22. The Commission shall in consultation with the National Devel­\nopment Planning Commission, relevant Ministries, Departments and \nAgencies identified by the Commission \nL.I. 2204 \n16 \nPETROLEUM (LOCAL CONTENT AND L..."
+        }
+    ]
+}

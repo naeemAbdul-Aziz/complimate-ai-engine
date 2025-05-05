@@ -1,46 +1,46 @@
 import os
+import logging
 from llama_index.core import SimpleDirectoryReader
 from llama_index.core.node_parser import SimpleFileNodeParser
 
+# ─── Logger Setup ─────────────────────────────────────────────────────────────
+def setup_logger(name=__name__, level=logging.INFO):
+    fmt = "%(asctime)s | %(levelname)-5s | %(name)s | %(message)s"
+    logging.basicConfig(format=fmt, level=level)
+    return logging.getLogger(name)
+
+logger = setup_logger()
+
+# ─── Parsing & Metadata ────────────────────────────────────────────────────────
 
 def parse_contract(file_path: str):
     """
     Parses a contract PDF into nodes using default LlamaIndex metadata.
-
-    Args:
-        file_path (str): Path to the contract file.
-
-    Returns:
-        list: Parsed nodes with default metadata.
     """
     if not os.path.exists(file_path):
-        raise FileNotFoundError(f"❌ File not found: {file_path}")
+        logger.error("File not found: %s", file_path)
+        raise FileNotFoundError(f"File not found: {file_path}")
 
-    print("📥 Loading contract document...")
+    logger.info("Loading contract document: %s", file_path)
     reader = SimpleDirectoryReader(input_files=[file_path])
     documents = reader.load_data()
 
     if not documents:
-        raise ValueError("❌ No document data found.")
+        logger.error("No document data found.")
+        raise ValueError("No document data found.")
 
-    print("✅ Contract document loaded successfully.")
+    logger.info("Contract document loaded successfully.")
     
     parser = SimpleFileNodeParser()
     nodes = parser.get_nodes_from_documents(documents)
 
-    print(f"✅ Contract parsed into {len(nodes)} nodes.")
+    logger.info("Contract parsed into %d nodes.", len(nodes))
     return nodes
 
 
 def extract_metadata(nodes):
     """
     Extracts and aggregates metadata from parsed nodes.
-
-    Args:
-        nodes (list): List of parsed nodes.
-
-    Returns:
-        dict: Dictionary with metadata fields and values.
     """
     metadata = {}
     for node in nodes:
@@ -49,10 +49,15 @@ def extract_metadata(nodes):
     return metadata
 
 
-# Example usage
-"""if __name__ == "__main__":
-    nodes = parse_contract("../data/contracts/sample.pdf")
-    for node in nodes:
-        print(f"\nNode content:\n{node.get_content()}")
-        print(f"Node metadata:\n{node.metadata}")
-"""
+# ─── Example Usage ─────────────────────────────────────────────────────────────
+# if __name__ == "__main__":
+    # Already configured via setup_logger()
+    try:
+        nodes = parse_contract("../data/contracts/sample.pdf")
+        for i, node in enumerate(nodes, 1):
+            logger.info("Node %d content:\n%s", i, node.get_content())
+            logger.info("Node %d metadata: %s", i, node.metadata)
+        meta = extract_metadata(nodes)
+        logger.info("Aggregated metadata: %s", meta)
+    except Exception as e:
+        logger.exception("An error occurred while parsing the contract")
