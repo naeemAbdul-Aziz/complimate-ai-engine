@@ -27,7 +27,7 @@ to parse contracts and flag compliance risks efficiently.
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.8 - 3.11
 - Virtual environment (recommended)
 - Dependencies listed in `requirements.txt`
 
