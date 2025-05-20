@@ -1,0 +1,7 @@
+services:
+  compli-ai-engine:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
