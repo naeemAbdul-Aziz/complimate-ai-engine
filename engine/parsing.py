@@ -1,7 +1,9 @@
-import os
 import logging
+import os
+
 from llama_index.core import SimpleDirectoryReader
 from llama_index.core.node_parser import SimpleFileNodeParser
+
 
 # ─── Logger Setup ─────────────────────────────────────────────────────────────
 def setup_logger(name=__name__, level=logging.INFO):
@@ -9,9 +11,11 @@ def setup_logger(name=__name__, level=logging.INFO):
     logging.basicConfig(format=fmt, level=level)
     return logging.getLogger(name)
 
+
 logger = setup_logger()
 
 # ─── Parsing & Metadata ────────────────────────────────────────────────────────
+
 
 def parse_contract(file_path: str):
     """
@@ -30,7 +34,7 @@ def parse_contract(file_path: str):
         raise ValueError("No document data found.")
 
     logger.info("Contract document loaded successfully.")
-    
+
     parser = SimpleFileNodeParser()
     nodes = parser.get_nodes_from_documents(documents)
 
@@ -48,9 +52,8 @@ def extract_metadata(nodes):
             metadata.setdefault(key, []).append(value)
     return metadata
 
-
-# ─── Example Usage ─────────────────────────────────────────────────────────────
-# if __name__ == "__main__":
+    # ─── Example Usage ─────────────────────────────────────────────────────────────
+    # if __name__ == "__main__":
     # Already configured via setup_logger()
     try:
         nodes = parse_contract("../data/contracts/sample.pdf")
@@ -59,5 +62,5 @@ def extract_metadata(nodes):
             logger.info("Node %d metadata: %s", i, node.metadata)
         meta = extract_metadata(nodes)
         logger.info("Aggregated metadata: %s", meta)
-    except Exception as e:
+    except Exception:
         logger.exception("An error occurred while parsing the contract")
