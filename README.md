@@ -1,8 +1,8 @@
-# Compli AI Engine
+# CompliMate AI Engine
 
 ## Overview
 
-The **Compli AI Engine** powers **Compli**, an AI-driven platform for contract compliance in **Ghana’s petroleum sector**. It automates the analysis of contracts, ensuring they meet regulations like:
+The **CompliMate AI Engine** powers **CompliMate**, an AI-driven platform for contract compliance in **Ghana’s petroleum sector**. It automates the analysis of contracts, ensuring they meet regulations like:
 
 - **LI 2204** (Petroleum Local Content Regulations, 2013)
 - **Act 896** (Income Tax Act, 2015)
@@ -83,6 +83,5 @@ This project is **proprietary**. All rights reserved. Contact us for licensing d
 
 📧 **Email:** coming soon
 
-For more about **Compli**, see our main project README - coming soon
-
+For more about **CompliMate**, see our landing page - complighana.com
 > **Powering Compliance with AI for Ghana’s Petroleum Sector** 
