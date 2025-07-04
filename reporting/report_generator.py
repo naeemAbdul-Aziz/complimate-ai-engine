@@ -56,8 +56,8 @@ class PDF(FPDF):
         self.set_text_color(*DEFAULT_COLOR)
         self.ln(2)
 
-    def chapter_body(self, text, font_style='', font_size=11):
-        self.set_font('Arial', font_style, font_size)
+    def chapter_body(self, text, font_size=11):
+        self.set_font('Arial', '', font_size)
         self.multi_cell(0, 6, text)
         self.ln()
 
@@ -177,7 +177,7 @@ def generate_pdf_report(report_data, output_file="analysis_report.pdf"):
         pdf.cell(0, 10, f"Analysis Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 0, 1, 'C')
         pdf.ln(10)
 
-        pdf.chapter_title("Executive Summary")
+        pdf.chapter_title("CompliMate Analysis Summary")
         pdf.set_font('Arial', '', 11)
         pdf.multi_cell(0, 5, f"Total potential compliance issues identified: {len(violations)}")
 
