@@ -5,8 +5,37 @@ reports/
 
 # Vector store databases (generated data)
 vector_store/
+vector_store_v2/
 *.sqlite3
 *.db
 
 # ChromaDB specific
 chroma.sqlite3
+
+# Documentation and analysis files (not for version control)
+firebase_studio_prompt.md
+websockets_vs_api_analysis.md
+
+# Temporary and utility scripts
+test_*.py
+reset_*.py
+*_backup.py
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Build and distribution
+dist/
+build/
+*.egg-info/
+
+# Logs
+*.log
+logs/
