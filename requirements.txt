@@ -1,5 +1,5 @@
 # Core AI Engine Dependencies
-llama-index == 0.12.33
+llama-index == 0.12.41
 openai == 1.75.0
 chromadb == 1.0.5
 llama-index-retrievers-bm25 == 0.5.2
