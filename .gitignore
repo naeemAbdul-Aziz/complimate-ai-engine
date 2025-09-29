@@ -2,3 +2,11 @@
 venv/
 __pycache__/
 reports/
+
+# Vector store databases (generated data)
+vector_store/
+*.sqlite3
+*.db
+
+# ChromaDB specific
+chroma.sqlite3
