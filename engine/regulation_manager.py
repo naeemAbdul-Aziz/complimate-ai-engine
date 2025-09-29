@@ -19,6 +19,7 @@ from llama_index.core import VectorStoreIndex, Document, Settings
 from llama_index.core.node_parser import SimpleNodeParser
 from llama_index.vector_stores.chroma import ChromaVectorStore
 import chromadb
+from chromadb.config import Settings
 from PyPDF2 import PdfReader
 
 from config import settings
@@ -82,35 +83,46 @@ class RegulationManager(LoggerMixin):
             raise
     
     def _initialize_chroma(self) -> None:
-        """Initialize ChromaDB persistent storage."""
+        """Initialize ChromaDB persistent storage with robust '_type' error handling."""
         try:
-            # Use persistent ChromaDB storage
+            settings.VECTOR_STORE_DIR.mkdir(parents=True, exist_ok=True)
             vector_store_path = str(settings.VECTOR_STORE_DIR)
-            chroma_client = chromadb.PersistentClient(path=vector_store_path)
-            
-            # Create or get collection
+            chroma_client = chromadb.PersistentClient(
+                settings=Settings(anonymized_telemetry=False, allow_reset=True)
+            )
+            collection = None
             try:
                 collection = chroma_client.get_collection(name=settings.CHROMA_COLLECTION_NAME)
-                self.logger.info(f"Using existing ChromaDB collection: {settings.CHROMA_COLLECTION_NAME}")
-            except Exception:
-                # Create new collection if it doesn't exist
+                # Check for '_type' error in metadata
+                meta = getattr(collection, 'metadata', {})
+                if not meta or '_type' not in meta:
+                    self.logger.warning("Collection metadata missing '_type', recreating collection...")
+                    chroma_client.delete_collection(name=settings.CHROMA_COLLECTION_NAME)
+                    collection = chroma_client.create_collection(
+                        name=settings.CHROMA_COLLECTION_NAME,
+                        metadata={"description": "Ghana legal regulations for compliance analysis", "_type": "collection"}
+                    )
+                    self.logger.info(f"Recreated ChromaDB collection: {settings.CHROMA_COLLECTION_NAME}")
+                else:
+                    self.logger.info(f"Using existing ChromaDB collection: {settings.CHROMA_COLLECTION_NAME}")
+            except Exception as get_error:
+                self.logger.warning(f"Could not get or use existing collection: {get_error}")
+                try:
+                    chroma_client.delete_collection(name=settings.CHROMA_COLLECTION_NAME)
+                except Exception:
+                    pass
                 collection = chroma_client.create_collection(
                     name=settings.CHROMA_COLLECTION_NAME,
-                    metadata={"description": "Ghana legal regulations for compliance analysis"}
+                    metadata={"description": "Ghana legal regulations for compliance analysis", "_type": "collection"}
                 )
                 self.logger.info(f"Created new ChromaDB collection: {settings.CHROMA_COLLECTION_NAME}")
-            
-            # Create ChromaVectorStore
             self.vector_store = ChromaVectorStore(chroma_collection=collection)
             self.using_persistent_storage = True
             self.logger.info(f"ChromaDB initialized successfully (persistent mode at {vector_store_path})")
-            
         except Exception as e:
             self.logger.error(f"Failed to initialize ChromaDB: {e}")
-            # Fall back to in-memory if persistent fails
             try:
-                self.logger.warning("Falling back to in-memory ChromaDB...")
-                chroma_client = chromadb.Client()
+                chroma_client = chromadb.Client(settings=Settings(anonymized_telemetry=False))
                 collection = chroma_client.create_collection(
                     name=settings.CHROMA_COLLECTION_NAME,
                     metadata={"description": "Ghana legal regulations for compliance analysis"}
@@ -118,7 +130,10 @@ class RegulationManager(LoggerMixin):
                 self.vector_store = ChromaVectorStore(chroma_collection=collection)
                 self.using_persistent_storage = False
                 self.logger.info("ChromaDB initialized successfully (in-memory fallback mode)")
-                
+                if self.using_persistent_storage is False:
+                    self.logger.info("Using in-memory storage - clearing existing metadata to force re-indexing")
+                    self.regulations_metadata = {}
+                    self._save_metadata()
             except Exception as fallback_error:
                 self.logger.error(f"Failed to initialize in-memory ChromaDB: {fallback_error}")
                 raise
@@ -495,4 +510,50 @@ class RegulationManager(LoggerMixin):
             
         except Exception as e:
             self.logger.error(f"Failed to remove regulation {file_name}: {e}")
+            return False
+    
+    def force_clear_vector_store(self) -> bool:
+        """Force clear vector store and metadata with enhanced error handling."""
+        try:
+            self.logger.info("Force clearing vector store and metadata...")
+            
+            # Clear the vector store collection
+            if hasattr(self, 'vector_store') and self.vector_store:
+                try:
+                    # Get the underlying chroma collection
+                    collection = self.vector_store._collection
+                    
+                    # Get the client and delete/recreate the collection
+                    client = collection._client
+                    try:
+                        client.delete_collection(name=settings.CHROMA_COLLECTION_NAME)
+                        self.logger.info("Deleted existing ChromaDB collection")
+                    except Exception as delete_error:
+                        self.logger.warning(f"Could not delete collection: {delete_error}")
+                    
+                    # Recreate the collection
+                    new_collection = client.create_collection(
+                        name=settings.CHROMA_COLLECTION_NAME,
+                        metadata={"description": "Ghana legal regulations for compliance analysis", "_type": "collection"}
+                    )
+                    self.vector_store = ChromaVectorStore(chroma_collection=new_collection)
+                    self.logger.info("Recreated ChromaDB collection")
+                    
+                except Exception as vs_error:
+                    self.logger.error(f"Error clearing vector store: {vs_error}")
+                    # Reinitialize completely
+                    self._initialize_chroma()
+            
+            # Clear metadata
+            self.regulations_metadata = {}
+            self._save_metadata()
+            
+            # Clear index cache
+            self.index = None
+            
+            self.logger.info("Vector store and metadata cleared successfully")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Failed to force clear vector store: {e}")
             return False
