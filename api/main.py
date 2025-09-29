@@ -22,9 +22,9 @@ from utils import setup_logging
 # Load environment variables
 load_dotenv()
 
-# Setup logging
-setup_logging()
-logger = logging.getLogger(__name__)
+# Setup production logging
+from config.logger import get_component_logger, create_request_logger
+logger = get_component_logger('api')
 
 # Create FastAPI app
 app = FastAPI(

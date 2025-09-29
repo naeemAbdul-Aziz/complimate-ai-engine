@@ -5,16 +5,20 @@ reports/
 
 # Vector store databases (generated data)
 vector_store/
-vector_store_v2/
 *.sqlite3
 *.db
 
 # ChromaDB specific
 chroma.sqlite3
+chroma/
 
-# Documentation and analysis files (not for version control)
-firebase_studio_prompt.md
-websockets_vs_api_analysis.md
+# Development and demo files (removed from production)
+docs/examples/
+*_enhanced_*.py
+validate_*.py
+verify_*.py
+*_demo.py
+*_example.py
 
 # Temporary and utility scripts
 test_*.py

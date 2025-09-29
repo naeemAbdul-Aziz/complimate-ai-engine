@@ -15,6 +15,9 @@ fastapi[standard] == 0.115.9
 uvicorn == 0.34.2
 python-dotenv == 1.0.0
 
+# Enhanced Logging with Colors
+colorlog == 6.8.2
+
 # Testing Dependencies
 pytest == 8.0.0
 pytest-asyncio == 0.23.0

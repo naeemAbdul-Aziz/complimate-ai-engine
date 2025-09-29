@@ -25,6 +25,7 @@ from engine.regulation_manager import RegulationManager
 from reporting.report_generator import generate_report, generate_text_report, generate_pdf_report
 
 from config import settings
+from config.logger import get_component_logger, log_performance
 from utils import LoggerMixin, log_performance
 from api.models.schemas import AnalysisStatus, ViolationModel
 
@@ -33,9 +34,16 @@ class AnalysisService(LoggerMixin):
     """Service class for handling contract compliance analysis."""
     
     def __init__(self):
+        # Use enhanced component logger instead of LoggerMixin
+        self._component_logger = get_component_logger('analysis_service')
         self.regulation_manager = RegulationManager()
         self.active_analyses: Dict[str, Dict[str, Any]] = {}
         self._initialize_models()
+    
+    @property
+    def logger(self):
+        """Get the component logger."""
+        return self._component_logger
     
     def _initialize_models(self) -> None:
         """Initialize OpenAI models and regulation index."""

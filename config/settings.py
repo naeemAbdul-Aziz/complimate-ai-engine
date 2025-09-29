@@ -38,7 +38,7 @@ class Settings:
     REPORTS_DIR: Path = BASE_DIR / "reports"
     REGULATIONS_DIR: Path = DATA_DIR / "regulations"
     CONTRACT_FOLDER: Path = DATA_DIR / "contracts"
-    VECTOR_STORE_DIR: Path = BASE_DIR / "vector_store_v2"
+    VECTOR_STORE_DIR: Path = BASE_DIR / "vector_store"
     
     # Legacy single regulation file (for backward compatibility)
     REGULATION_FILE: Path = REGULATIONS_DIR / "li_2204.pdf"
