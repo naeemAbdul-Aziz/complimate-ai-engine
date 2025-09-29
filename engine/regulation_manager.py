@@ -1,0 +1,498 @@
+# engine/regulation_manager.py
+"""
+Regulation Management for CompliMate AI Engine
+============================================
+
+This module handles loading, indexing, and managing multiple regulation documents
+with persistent vector storage and metadata tracking.
+"""
+
+import os
+import json
+import hashlib
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Any
+from dataclasses import dataclass, asdict
+
+from llama_index.core import VectorStoreIndex, Document, Settings
+from llama_index.core.node_parser import SimpleNodeParser
+from llama_index.vector_stores.chroma import ChromaVectorStore
+import chromadb
+from PyPDF2 import PdfReader
+
+from config import settings
+from utils import LoggerMixin
+
+
+@dataclass
+class RegulationMetadata:
+    """Metadata for a regulation document."""
+    file_path: str
+    file_name: str
+    category: str
+    title: str
+    effective_date: Optional[str] = None
+    last_amended: Optional[str] = None
+    file_size: int = 0
+    file_hash: str = ""
+    indexed_date: str = ""
+    chunk_count: int = 0
+    description: str = ""
+    tags: Optional[List[str]] = None
+    
+    def __post_init__(self):
+        if self.tags is None:
+            self.tags = []
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return asdict(self)
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'RegulationMetadata':
+        """Create from dictionary."""
+        return cls(**data)
+
+
+class RegulationManager(LoggerMixin):
+    """Manages multiple regulation documents with persistent storage."""
+    
+    def __init__(self):
+        self.vector_store: Optional[ChromaVectorStore] = None
+        self.regulation_index: Optional[VectorStoreIndex] = None
+        self.regulations_metadata: Dict[str, RegulationMetadata] = {}
+        self.metadata_file = settings.REGULATIONS_DIR / "regulations_metadata.json"
+        self.using_persistent_storage = False
+        
+        # Initialize storage
+        self._initialize_storage()
+        self._load_metadata()
+    
+    def _initialize_storage(self) -> None:
+        """Initialize vector storage system."""
+        try:
+            if settings.USE_PERSISTENT_STORAGE and settings.VECTOR_STORE_TYPE == "chroma":
+                self._initialize_chroma()
+            else:
+                self.logger.info("Using in-memory vector storage")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to initialize storage: {e}")
+            raise
+    
+    def _initialize_chroma(self) -> None:
+        """Initialize ChromaDB persistent storage."""
+        try:
+            # Use persistent ChromaDB storage
+            vector_store_path = str(settings.VECTOR_STORE_DIR)
+            chroma_client = chromadb.PersistentClient(path=vector_store_path)
+            
+            # Create or get collection
+            try:
+                collection = chroma_client.get_collection(name=settings.CHROMA_COLLECTION_NAME)
+                self.logger.info(f"Using existing ChromaDB collection: {settings.CHROMA_COLLECTION_NAME}")
+            except Exception:
+                # Create new collection if it doesn't exist
+                collection = chroma_client.create_collection(
+                    name=settings.CHROMA_COLLECTION_NAME,
+                    metadata={"description": "Ghana legal regulations for compliance analysis"}
+                )
+                self.logger.info(f"Created new ChromaDB collection: {settings.CHROMA_COLLECTION_NAME}")
+            
+            # Create ChromaVectorStore
+            self.vector_store = ChromaVectorStore(chroma_collection=collection)
+            self.using_persistent_storage = True
+            self.logger.info(f"ChromaDB initialized successfully (persistent mode at {vector_store_path})")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to initialize ChromaDB: {e}")
+            # Fall back to in-memory if persistent fails
+            try:
+                self.logger.warning("Falling back to in-memory ChromaDB...")
+                chroma_client = chromadb.Client()
+                collection = chroma_client.create_collection(
+                    name=settings.CHROMA_COLLECTION_NAME,
+                    metadata={"description": "Ghana legal regulations for compliance analysis"}
+                )
+                self.vector_store = ChromaVectorStore(chroma_collection=collection)
+                self.using_persistent_storage = False
+                self.logger.info("ChromaDB initialized successfully (in-memory fallback mode)")
+                
+            except Exception as fallback_error:
+                self.logger.error(f"Failed to initialize in-memory ChromaDB: {fallback_error}")
+                raise
+    
+    def _load_metadata(self) -> None:
+        """Load regulations metadata from JSON file."""
+        try:
+            if self.metadata_file.exists():
+                with open(self.metadata_file, 'r', encoding='utf-8') as f:
+                    metadata_dict = json.load(f)
+                    
+                self.regulations_metadata = {
+                    file_name: RegulationMetadata.from_dict(data)
+                    for file_name, data in metadata_dict.items()
+                }
+                
+                # If using in-memory storage, clear metadata to force re-indexing
+                if not self.using_persistent_storage:
+                    self.logger.info("Using in-memory storage - clearing existing metadata to force re-indexing")
+                    self.regulations_metadata.clear()
+                
+                self.logger.info(f"Loaded metadata for {len(self.regulations_metadata)} regulations")
+            else:
+                self.logger.info("No existing metadata file found, starting fresh")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to load metadata: {e}")
+            self.regulations_metadata = {}
+    
+    def _save_metadata(self) -> None:
+        """Save regulations metadata to JSON file."""
+        try:
+            settings.REGULATIONS_DIR.mkdir(parents=True, exist_ok=True)
+            
+            metadata_dict = {
+                file_name: metadata.to_dict()
+                for file_name, metadata in self.regulations_metadata.items()
+            }
+            
+            with open(self.metadata_file, 'w', encoding='utf-8') as f:
+                json.dump(metadata_dict, f, indent=2, ensure_ascii=False)
+                
+            self.logger.info("Metadata saved successfully")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to save metadata: {e}")
+    
+    def _calculate_file_hash(self, file_path: Path) -> str:
+        """Calculate MD5 hash of a file."""
+        hash_md5 = hashlib.md5()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        return hash_md5.hexdigest()
+    
+    def _extract_pdf_text(self, file_path: Path) -> str:
+        """Extract text from PDF file."""
+        try:
+            text = ""
+            with open(file_path, "rb") as file:
+                reader = PdfReader(file)
+                for page in reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\\n"
+            
+            return text.strip()
+            
+        except Exception as e:
+            self.logger.error(f"Failed to extract text from {file_path}: {e}")
+            return ""
+    
+    def _extract_metadata_from_text(self, text: str, file_name: str) -> Dict[str, Any]:
+        """Extract basic metadata from regulation text."""
+        # Simple metadata extraction - can be enhanced with NLP
+        metadata = {
+            "title": file_name.replace(".pdf", "").replace("_", " ").title(),
+            "description": f"Legal regulation document: {file_name}",
+            "tags": []
+        }
+        
+        # Look for common patterns in Ghana legal documents
+        if "petroleum" in text.lower():
+            metadata["tags"].append("petroleum")
+        if "mining" in text.lower():
+            metadata["tags"].append("mining")
+        if "environmental" in text.lower():
+            metadata["tags"].append("environmental")
+        if "labor" in text.lower() or "labour" in text.lower():
+            metadata["tags"].append("labor")
+            
+        return metadata
+    
+    def discover_regulation_files(self) -> List[Path]:
+        """Discover all regulation files in the regulations directory."""
+        if not settings.REGULATIONS_DIR.exists():
+            self.logger.warning(f"Regulations directory not found: {settings.REGULATIONS_DIR}")
+            return []
+        
+        regulation_files = []
+        for file_path in settings.REGULATIONS_DIR.glob("*.pdf"):
+            if file_path.is_file():
+                regulation_files.append(file_path)
+        
+        self.logger.info(f"Discovered {len(regulation_files)} regulation files")
+        return regulation_files
+    
+    def should_reindex_file(self, file_path: Path) -> bool:
+        """Check if a file needs to be reindexed."""
+        file_name = file_path.name
+        
+        # Check if file is new
+        if file_name not in self.regulations_metadata:
+            return True
+        
+        # Check if file has been modified
+        current_hash = self._calculate_file_hash(file_path)
+        stored_metadata = self.regulations_metadata[file_name]
+        
+        return current_hash != stored_metadata.file_hash
+    
+    def index_regulation_file(self, file_path: Path, category: str = "general") -> RegulationMetadata:
+        """Index a single regulation file."""
+        try:
+            self.logger.info(f"Indexing regulation file: {file_path}")
+            
+            # Extract text
+            text = self._extract_pdf_text(file_path)
+            if not text:
+                raise ValueError(f"No text extracted from {file_path}")
+            
+            # Extract metadata
+            auto_metadata = self._extract_metadata_from_text(text, file_path.name)
+            
+            # Create regulation metadata
+            file_stats = file_path.stat()
+            metadata = RegulationMetadata(
+                file_path=str(file_path),
+                file_name=file_path.name,
+                category=category,
+                title=auto_metadata["title"],
+                file_size=file_stats.st_size,
+                file_hash=self._calculate_file_hash(file_path),
+                indexed_date=datetime.now().isoformat(),
+                description=auto_metadata["description"],
+                tags=auto_metadata["tags"]
+            )
+            
+            # Create documents with metadata
+            documents = self._create_documents_from_text(text, metadata)
+            metadata.chunk_count = len(documents)
+            
+            # Add to index
+            if self.regulation_index is None:
+                if self.vector_store:
+                    self.regulation_index = VectorStoreIndex.from_documents(
+                        documents, vector_store=self.vector_store
+                    )
+                else:
+                    self.regulation_index = VectorStoreIndex.from_documents(documents)
+            else:
+                # Add documents to existing index
+                for doc in documents:
+                    self.regulation_index.insert(doc)
+            
+            # Store metadata
+            self.regulations_metadata[file_path.name] = metadata
+            self._save_metadata()
+            
+            self.logger.info(f"Successfully indexed {file_path.name} ({len(documents)} chunks)")
+            return metadata
+            
+        except Exception as e:
+            self.logger.error(f"Failed to index {file_path}: {e}")
+            raise
+    
+    def _create_documents_from_text(self, text: str, metadata: RegulationMetadata) -> List[Document]:
+        """Create LlamaIndex documents from text with chunking."""
+        # Create main document
+        main_doc = Document(
+            text=text,
+            doc_id=f"regulation_{metadata.file_name}",
+            metadata={
+                "file_name": metadata.file_name,
+                "category": metadata.category,
+                "title": metadata.title,
+                "tags": metadata.tags,
+                "source_type": "regulation",
+                "file_path": metadata.file_path
+            }
+        )
+        
+        # Parse into chunks if text is large
+        if len(text) > settings.CHUNK_SIZE:
+            parser = SimpleNodeParser.from_defaults(
+                chunk_size=settings.CHUNK_SIZE,
+                chunk_overlap=settings.CHUNK_OVERLAP
+            )
+            nodes = parser.get_nodes_from_documents([main_doc])
+            
+            # Convert nodes back to documents
+            documents = []
+            for i, node in enumerate(nodes):
+                doc = Document(
+                    text=node.get_content(),
+                    doc_id=f"{main_doc.doc_id}_chunk_{i}",
+                    metadata=node.metadata
+                )
+                documents.append(doc)
+            
+            return documents
+        else:
+            return [main_doc]
+    
+    def rebuild_index(self, force: bool = False) -> Dict[str, Any]:
+        """Rebuild the entire regulation index."""
+        try:
+            self.logger.info("Starting regulation index rebuild...")
+            
+            # Discover all regulation files
+            regulation_files = self.discover_regulation_files()
+            
+            if not regulation_files:
+                self.logger.warning("No regulation files found to index")
+                return {"status": "no_files", "files_processed": 0}
+            
+            # Clear existing index if forcing rebuild
+            if force:
+                self.regulation_index = None
+                self.regulations_metadata.clear()
+            
+            # Process each file
+            processed_files = []
+            skipped_files = []
+            error_files = []
+            
+            for file_path in regulation_files:
+                try:
+                    if not force and not self.should_reindex_file(file_path):
+                        skipped_files.append(file_path.name)
+                        continue
+                    
+                    # Determine category
+                    category = self._determine_category(file_path.name)
+                    
+                    # Index the file
+                    metadata = self.index_regulation_file(file_path, category)
+                    processed_files.append({
+                        "file_name": metadata.file_name,
+                        "category": metadata.category,
+                        "chunks": metadata.chunk_count
+                    })
+                    
+                except Exception as e:
+                    self.logger.error(f"Failed to process {file_path}: {e}")
+                    error_files.append({"file_name": file_path.name, "error": str(e)})
+            
+            result = {
+                "status": "completed",
+                "files_processed": len(processed_files),
+                "files_skipped": len(skipped_files),
+                "files_failed": len(error_files),
+                "processed_files": processed_files,
+                "skipped_files": skipped_files,
+                "error_files": error_files,
+                "total_regulations": len(self.regulations_metadata)
+            }
+            
+            self.logger.info(f"Index rebuild completed: {result}")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Failed to rebuild index: {e}")
+            raise
+    
+    def _determine_category(self, file_name: str) -> str:
+        """Determine regulation category from filename."""
+        file_name_lower = file_name.lower()
+        
+        for category, files in settings.REGULATION_CATEGORIES.items():
+            if file_name in files:
+                return category
+        
+        # Auto-categorize based on filename
+        if "petroleum" in file_name_lower or "li_2204" in file_name_lower:
+            return "petroleum"
+        elif "mining" in file_name_lower:
+            return "mining"
+        elif "environmental" in file_name_lower or "environment" in file_name_lower:
+            return "environmental"
+        elif "labor" in file_name_lower or "labour" in file_name_lower:
+            return "labor"
+        else:
+            return "general"
+    
+    def get_regulation_index(self) -> Optional[VectorStoreIndex]:
+        """Get the current regulation index."""
+        if self.regulation_index is None:
+            self.logger.info("No regulation index found, building...")
+            result = self.rebuild_index()
+            if result["files_processed"] == 0:
+                self.logger.warning("No regulations were indexed")
+        
+        return self.regulation_index
+    
+    def get_regulations_info(self) -> Dict[str, Any]:
+        """Get information about all indexed regulations."""
+        return {
+            "total_regulations": len(self.regulations_metadata),
+            "categories": self._get_category_summary(),
+            "regulations": [metadata.to_dict() for metadata in self.regulations_metadata.values()],
+            "storage_type": "persistent" if self.vector_store else "in-memory",
+            "last_updated": max(
+                [metadata.indexed_date for metadata in self.regulations_metadata.values()],
+                default="never"
+            )
+        }
+    
+    def _get_category_summary(self) -> Dict[str, int]:
+        """Get summary of regulations by category."""
+        summary = {}
+        for metadata in self.regulations_metadata.values():
+            category = metadata.category
+            summary[category] = summary.get(category, 0) + 1
+        return summary
+    
+    def get_regulation_by_category(self, category: str) -> List[RegulationMetadata]:
+        """Get all regulations in a specific category."""
+        return [
+            metadata for metadata in self.regulations_metadata.values()
+            if metadata.category == category
+        ]
+    
+    def add_regulation_file(self, file_path: Path, category: str = "general", 
+                           metadata_override: Optional[Dict[str, Any]] = None) -> RegulationMetadata:
+        """Add a new regulation file to the index."""
+        try:
+            # Index the file
+            metadata = self.index_regulation_file(file_path, category)
+            
+            # Apply metadata overrides if provided
+            if metadata_override:
+                for key, value in metadata_override.items():
+                    if hasattr(metadata, key):
+                        setattr(metadata, key, value)
+                
+                # Update stored metadata
+                self.regulations_metadata[file_path.name] = metadata
+                self._save_metadata()
+            
+            return metadata
+            
+        except Exception as e:
+            self.logger.error(f"Failed to add regulation file {file_path}: {e}")
+            raise
+    
+    def remove_regulation(self, file_name: str) -> bool:
+        """Remove a regulation from the index."""
+        try:
+            if file_name not in self.regulations_metadata:
+                self.logger.warning(f"Regulation {file_name} not found in metadata")
+                return False
+            
+            # Remove from metadata
+            del self.regulations_metadata[file_name]
+            self._save_metadata()
+            
+            # Note: For ChromaDB, we would need to rebuild the index to truly remove
+            # This is a limitation we'll address in future versions
+            self.logger.info(f"Regulation {file_name} removed from metadata")
+            self.logger.warning("Index rebuild required to fully remove documents from vector store")
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Failed to remove regulation {file_name}: {e}")
+            return False

@@ -36,13 +36,36 @@ class Settings:
     DATA_DIR: Path = BASE_DIR / "data"
     UPLOADS_DIR: Path = BASE_DIR / "uploads"
     REPORTS_DIR: Path = BASE_DIR / "reports"
-    REGULATION_FILE: Path = DATA_DIR / "regulations" / "li_2204.pdf"
+    REGULATIONS_DIR: Path = DATA_DIR / "regulations"
     CONTRACT_FOLDER: Path = DATA_DIR / "contracts"
+    VECTOR_STORE_DIR: Path = BASE_DIR / "vector_store"
+    
+    # Legacy single regulation file (for backward compatibility)
+    REGULATION_FILE: Path = REGULATIONS_DIR / "li_2204.pdf"
     
     # Analysis Configuration
     MAX_CONCURRENT_ANALYSES: int = int(os.getenv("MAX_CONCURRENT_ANALYSES", "5"))
     ANALYSIS_TIMEOUT_MINUTES: int = int(os.getenv("ANALYSIS_TIMEOUT_MINUTES", "30"))
     HYBRID_SEARCH_TOP_K: int = int(os.getenv("HYBRID_SEARCH_TOP_K", "5"))
+    
+    # Vector Storage Configuration
+    USE_PERSISTENT_STORAGE: bool = os.getenv("USE_PERSISTENT_STORAGE", "True").lower() == "true"
+    VECTOR_STORE_TYPE: str = os.getenv("VECTOR_STORE_TYPE", "chroma")  # "chroma" or "memory"
+    CHROMA_COLLECTION_NAME: str = os.getenv("CHROMA_COLLECTION_NAME", "ghana_regulations")
+    
+    # Multi-regulation Configuration
+    REGULATION_CATEGORIES: dict = {
+        "petroleum": ["li_2204.pdf"],
+        "mining": [],
+        "environmental": [],
+        "labor": [],
+        "general": []
+    }
+    
+    # Regulation Processing
+    CHUNK_SIZE: int = int(os.getenv("REGULATION_CHUNK_SIZE", "1000"))
+    CHUNK_OVERLAP: int = int(os.getenv("REGULATION_CHUNK_OVERLAP", "200"))
+    ENABLE_METADATA_EXTRACTION: bool = os.getenv("ENABLE_METADATA_EXTRACTION", "True").lower() == "true"
     
     # File Upload Configuration
     MAX_FILE_SIZE_MB: int = int(os.getenv("MAX_FILE_SIZE_MB", "50"))

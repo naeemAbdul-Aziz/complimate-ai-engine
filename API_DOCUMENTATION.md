@@ -1,20 +1,107 @@
-# CompliMate API Documentation
+# CompliMate API v2.0 Documentation
 
 ## Overview
 
-The CompliMate API provides endpoints for contract compliance analysis against Ghanaian petroleum regulations (LI 2204). The API processes PDF contracts and generates detailed compliance reports.
+The **CompliMate API v2.0** provides comprehensive endpoints for contract compliance analysis against Ghanaian regulations. This enhanced version features multi-regulation support, persistent vector storage, and advanced regulation management capabilities.
+
+### Key Features
+- **Multi-Regulation Support** - Handle multiple regulation files with categorization
+- **Persistent Vector Storage** - ChromaDB integration with automatic persistence
+- **Advanced Indexing** - Smart file change detection and selective re-indexing
+- **Modern Architecture** - FastAPI with modular design and comprehensive documentation
+- **Enhanced Analysis** - Improved compliance checking with detailed progress tracking
 
 ## Base URL
 ```
 http://localhost:8000
 ```
 
+## Interactive Documentation
+- **Swagger UI:** http://localhost:8000/docs
+- **ReDoc:** http://localhost:8000/redoc
+
 ## Authentication
 Currently, no authentication is required. The API uses OpenAI API key configured via environment variables.
 
 ## Endpoints
 
-### 1. Health Check
+### Regulation Management (New in v2.0)
+
+#### 1. List Regulations
+**GET** `/regulations/`
+
+Get a list of all available regulations with their metadata.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Regulations retrieved successfully",
+  "timestamp": "2025-09-29T12:00:00.123456",
+  "regulations": [
+    {
+      "id": "li_2204",
+      "title": "Petroleum (Local Content and Local Participation) Regulations, 2013",
+      "category": "petroleum",
+      "description": "Local content requirements for petroleum operations",
+      "version": "2013",
+      "effective_date": "2013-12-31T00:00:00",
+      "file_path": "data/regulations/li_2204.pdf",
+      "last_updated": "2025-09-29T10:00:00.123456",
+      "document_count": 22,
+      "is_indexed": true
+    }
+  ],
+  "total_count": 1
+}
+```
+
+#### 2. Rebuild Regulation Index
+**POST** `/regulations/rebuild`
+
+Rebuild the regulation index, optionally forcing re-indexing of all files.
+
+**Request Body:**
+```json
+{
+  "force": false,
+  "categories": ["petroleum", "tax"]  // optional: specific categories only
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Regulation index rebuilt successfully",
+  "timestamp": "2025-09-29T12:00:00.123456",
+  "rebuilt_regulations": ["li_2204"],
+  "total_processed": 1,
+  "processing_time": 12.5
+}
+```
+
+#### 3. Regulation System Status
+**GET** `/regulations/status`
+
+Get the current status of the regulation management system.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Regulation system status retrieved",
+  "timestamp": "2025-09-29T12:00:00.123456",
+  "total_regulations": 1,
+  "indexed_regulations": 1,
+  "storage_type": "chromadb_persistent",
+  "storage_path": "C:\\path\\to\\vector_store"
+}
+```
+
+### Contract Analysis
+
+#### 4. Health Check
 **GET** `/health`
 
 Check if the API server and dependencies are running properly.
@@ -23,13 +110,16 @@ Check if the API server and dependencies are running properly.
 ```json
 {
   "status": "healthy",
-  "timestamp": "2025-09-28T14:30:00.123456",
+  "timestamp": "2025-09-29T12:00:00.123456",
   "regulation_loaded": true,
-  "openai_configured": true
+  "openai_configured": true,
+  "vector_store_status": "connected",
+  "total_regulations": 1,
+  "indexed_documents": 22
 }
 ```
 
-### 2. Upload Contract
+#### 5. Upload Contract
 **POST** `/upload`
 
 Upload a contract file for analysis. Supports PDF, TXT, and DOCX files.

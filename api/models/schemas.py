@@ -53,7 +53,7 @@ class AnalysisRequest(BaseModel):
     include_universal_clauses: bool = Field(True, description="Include universal clause analysis")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "file_id": "123e4567-e89b-12d3-a456-426614174000",
                 "priority": "normal",
@@ -82,7 +82,7 @@ class ContractUploadResponse(BaseModel):
     uploaded_at: datetime = Field(default_factory=datetime.now, description="Upload timestamp")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "message": "File uploaded successfully",
                 "filename": "contract.pdf",
@@ -103,7 +103,7 @@ class AnalysisStartResponse(BaseModel):
     started_at: datetime = Field(default_factory=datetime.now, description="Analysis start time")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "message": "Analysis started successfully",
                 "analysis_id": "987e6543-e21b-43d2-a567-426614174111",
@@ -127,7 +127,7 @@ class ViolationModel(BaseModel):
     regulation_snippet: Optional[str] = Field(None, description="Relevant regulation text")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "description": "The contract clause does not mention the requirement for a local content plan",
                 "category": "Missing Obligation",
@@ -149,7 +149,7 @@ class AnalysisResults(BaseModel):
     analysis_duration: str = Field(..., description="Actual analysis duration")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "total_violations": 15,
                 "high_severity": 3,
@@ -162,7 +162,7 @@ class AnalysisResults(BaseModel):
 
 class ReportPaths(BaseModel):
     """Model for report file paths."""
-    json: str = Field(..., description="Path to JSON report")
+    json_file: str = Field(..., description="Path to JSON report")
     txt: str = Field(..., description="Path to text report")
     pdf: str = Field(..., description="Path to PDF report")
 
@@ -180,7 +180,7 @@ class AnalysisStatusResponse(BaseModel):
     error: Optional[str] = Field(None, description="Error message (if failed)")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "analysis_id": "987e6543-e21b-43d2-a567-426614174111",
                 "status": "running",
@@ -204,7 +204,7 @@ class AnalysisResultsResponse(BaseModel):
     violations: List[ViolationModel] = Field(..., description="List of all violations")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "contract_name": "sample-contract.pdf",
                 "regulation_file": "data/regulations/li_2204.pdf",
@@ -233,7 +233,7 @@ class ActiveAnalysesResponse(BaseModel):
     total_active: int = Field(..., description="Total number of active analyses")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "active_analyses": [
                     {
@@ -249,6 +249,14 @@ class ActiveAnalysesResponse(BaseModel):
         }
 
 
+# Base Response Models
+class BaseResponse(BaseModel):
+    """Base response model with common fields."""
+    success: bool = Field(..., description="Indicates if the operation was successful")
+    message: str = Field(..., description="Human-readable message about the operation")
+    timestamp: datetime = Field(default_factory=datetime.now, description="Response timestamp")
+
+
 class ErrorResponse(BaseModel):
     """Standard error response model."""
     detail: str = Field(..., description="Error message")
@@ -256,10 +264,46 @@ class ErrorResponse(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now, description="Error timestamp")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "detail": "File not found",
                 "error_code": "FILE_NOT_FOUND",
                 "timestamp": "2025-09-29T10:30:00.123456"
             }
         }
+
+
+# Regulation Management Models
+class RegulationInfo(BaseModel):
+    """Information about a regulation document."""
+    id: str = Field(..., description="Regulation identifier")
+    title: str = Field(..., description="Regulation title")
+    category: str = Field(..., description="Regulation category")
+    description: Optional[str] = Field(None, description="Regulation description")
+    version: Optional[str] = Field(None, description="Regulation version")
+    effective_date: Optional[datetime] = Field(None, description="When the regulation became effective")
+    file_path: str = Field(..., description="Path to the regulation file")
+    last_updated: datetime = Field(..., description="When the regulation was last updated")
+    document_count: int = Field(..., description="Number of indexed documents")
+    is_indexed: bool = Field(..., description="Whether the regulation is currently indexed")
+
+
+class RegulationListResponse(BaseResponse):
+    """Response model for listing regulations."""
+    regulations: List[RegulationInfo] = Field(..., description="List of available regulations")
+    total_count: int = Field(..., description="Total number of regulations")
+
+
+class RegulationRebuildResponse(BaseResponse):
+    """Response model for regulation rebuild operations."""
+    rebuilt_regulations: List[str] = Field(..., description="List of rebuilt regulation IDs")
+    total_processed: int = Field(..., description="Total number of regulations processed")
+    processing_time: float = Field(..., description="Time taken to rebuild in seconds")
+
+
+class RegulationStatusResponse(BaseResponse):
+    """Response model for regulation system status."""
+    total_regulations: int = Field(..., description="Total number of regulations")
+    indexed_regulations: int = Field(..., description="Number of indexed regulations")
+    storage_type: str = Field(..., description="Type of vector storage being used")
+    storage_path: Optional[str] = Field(None, description="Path to storage directory")

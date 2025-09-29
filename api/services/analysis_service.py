@@ -21,6 +21,7 @@ from llama_index.embeddings.openai import OpenAIEmbedding
 from engine.parsing import parse_contract
 from engine.retrieval import find_relevant_regulations
 from engine.violation import create_violation_prompt, process_batch_violation_responses
+from engine.regulation_manager import RegulationManager
 from reporting.report_generator import generate_report, generate_text_report, generate_pdf_report
 
 from config import settings
@@ -32,7 +33,7 @@ class AnalysisService(LoggerMixin):
     """Service class for handling contract compliance analysis."""
     
     def __init__(self):
-        self.regulation_index: Optional[VectorStoreIndex] = None
+        self.regulation_manager = RegulationManager()
         self.active_analyses: Dict[str, Dict[str, Any]] = {}
         self._initialize_models()
     
@@ -52,43 +53,18 @@ class AnalysisService(LoggerMixin):
                 api_key=settings.OPENAI_API_KEY
             )
             
-            # Load and index regulation
-            self._load_regulation_index()
+            # Initialize regulation manager and get index
+            regulation_index = self.regulation_manager.get_regulation_index()
+            if regulation_index is None:
+                self.logger.warning("No regulation index available. Please rebuild regulations through the API.")
+                # Don't raise an error - allow the API to start and regulations can be built later
+            else:
+                self.logger.info("Regulation index loaded successfully")
             
             self.logger.info("Models initialized successfully")
             
         except Exception as e:
             self.logger.error(f"Failed to initialize models: {e}")
-            raise
-    
-    def _load_regulation_index(self) -> None:
-        """Load regulation document and create searchable index."""
-        try:
-            if not settings.REGULATION_FILE.exists():
-                raise FileNotFoundError(f"Regulation file not found: {settings.REGULATION_FILE}")
-            
-            # Load regulation text
-            from PyPDF2 import PdfReader
-            
-            text = ""
-            with open(settings.REGULATION_FILE, "rb") as file:
-                reader = PdfReader(file)
-                for page in reader.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text += page_text + "\n"
-            
-            if not text.strip():
-                raise ValueError("No text extracted from regulation file")
-            
-            # Create index
-            regulation_document = Document(text=text, doc_id=str(settings.REGULATION_FILE))
-            self.regulation_index = VectorStoreIndex.from_documents([regulation_document])
-            
-            self.logger.info(f"Regulation index created successfully ({len(text)} characters)")
-            
-        except Exception as e:
-            self.logger.error(f"Failed to load regulation index: {e}")
             raise
     
     @log_performance
@@ -157,7 +133,7 @@ class AnalysisService(LoggerMixin):
                 # Find relevant regulations
                 relevant_regs = find_relevant_regulations(
                     node, 
-                    self.regulation_index, 
+                    self.regulation_manager.get_regulation_index(), 
                     top_n=settings.HYBRID_SEARCH_TOP_K
                 )
                 
@@ -263,13 +239,13 @@ class AnalysisService(LoggerMixin):
         base_name = f"{report_data['contract_name']}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
         report_paths = {
-            "json": settings.REPORTS_DIR / f"{base_name}_report.json",
+            "json_file": settings.REPORTS_DIR / f"{base_name}_report.json",
             "txt": settings.REPORTS_DIR / f"{base_name}_report.txt",
             "pdf": settings.REPORTS_DIR / f"{base_name}_report.pdf"
         }
         
         # Generate reports
-        generate_report(report_data, str(report_paths["json"]))
+        generate_report(report_data, str(report_paths["json_file"]))
         generate_text_report(report_data, str(report_paths["txt"]))
         generate_pdf_report(report_data, str(report_paths["pdf"]))
         
@@ -345,4 +321,17 @@ class AnalysisService(LoggerMixin):
     @property
     def is_ready(self) -> bool:
         """Check if the service is ready to process analyses."""
-        return self.regulation_index is not None
+        return self.regulation_manager.get_regulation_index() is not None
+    
+    def get_regulations_info(self) -> Dict[str, Any]:
+        """Get information about all indexed regulations."""
+        return self.regulation_manager.get_regulations_info()
+    
+    def rebuild_regulations_index(self, force: bool = False) -> Dict[str, Any]:
+        """Rebuild the regulations index."""
+        return self.regulation_manager.rebuild_index(force=force)
+    
+    def get_regulations_by_category(self, category: str) -> List[Dict[str, Any]]:
+        """Get regulations in a specific category."""
+        regulations = self.regulation_manager.get_regulation_by_category(category)
+        return [reg.to_dict() for reg in regulations]

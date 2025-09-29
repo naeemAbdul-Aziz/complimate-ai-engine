@@ -26,6 +26,11 @@ black == 24.0.0
 isort == 5.13.0
 flake8 == 7.0.0
 
+# Vector storage and enhanced features
+chromadb == 0.4.15  # Persistent vector storage
+# sqlalchemy == 2.0.23  # Database ORM for metadata (temporarily disabled due to Python 3.13 compatibility)
+# alembic == 1.12.1  # Database migrations (temporarily disabled due to Python 3.13 compatibility)
+
 # Additional Utilities (already included in dependencies above, but listing for clarity)
 # pydantic - included with FastAPI
 # typing-extensions - included with FastAPI
