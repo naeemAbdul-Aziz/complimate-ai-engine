@@ -1,40 +1,53 @@
-# Core AI Engine Dependencies
-llama-index == 0.12.41
-openai == 1.75.0
-chromadb == 1.0.5
-llama-index-retrievers-bm25 == 0.5.2
-llama-index-llms-openai == 0.3.37
-llama-index-embeddings-openai == 0.3.1
+###############################################
+# CompliMate AI Engine - Normalized Dependencies
+# Strategy: Hybrid (conflict resolution + modest upgrades)
+# Date: 2025-10-08
+# Notes:
+#  - Removed duplicate / conflicting pins (chromadb listed twice)
+#  - Dropped monolithic `llama-index` in favor of modular packages actually used
+#  - Aligned pins with currently validated, installed versions where stable
+#  - Upgraded FastAPI/uvicorn/openai to coherent set; kept colorlog modern version
+#  - Dev/test tooling grouped separately for clarity
+#  - For full reproducibility consider exporting a lock file via pip-tools / uv / poetry in future
+###############################################
 
-# File Processing
-PyPDF2 == 3.0.1
-fpdf == 1.7.2
+############## Runtime Core ##############
+fastapi[standard]==0.116.1        # Modern API framework (aligned with Starlette 0.41.x)
+uvicorn==0.35.0                   # ASGI server (matches FastAPI compatibility matrix)
+openai==1.75.0                    # OpenAI official client (aligns with model usage)
+httpx==0.28.1                     # HTTP client (transitive but pinned for stability)
+python-dotenv==1.1.1              # Environment variable loading
+colorlog==6.8.2                   # Colored console logging
 
-# API Framework
-fastapi[standard] == 0.115.9
-uvicorn == 0.34.2
-python-dotenv == 1.0.0
+############## Document / PDF Processing ##############
+PyPDF2==3.0.1                     # PDF parsing
+fpdf==1.7.2                       # Simple PDF report generation
 
-# Enhanced Logging with Colors
-colorlog == 6.8.2
+############## Vector Store / Persistence ##############
+chromadb==0.5.21                  # Persistent vector storage (removed old 0.4.x / 1.0.x pins)
 
-# Testing Dependencies
-pytest == 8.0.0
-pytest-asyncio == 0.23.0
-pytest-cov == 4.1.0
-httpx == 0.28.1
+############## LlamaIndex Modular Stack ##############
+# Replaced monolithic `llama-index` with only required subpackages
+llama-index-core==0.14.3
+llama-index-llms-openai==0.3.29
+llama-index-embeddings-openai==0.3.1
+llama-index-retrievers-bm25==0.6.5
+llama-index-vector-stores-chroma==0.5.3
 
-# Development Dependencies  
-black == 24.3.0
-isort == 5.13.0
-flake8 == 7.0.0
+############## Testing ##############
+pytest==8.4.1
+pytest-asyncio==0.23.0
+pytest-cov==4.1.0
 
-# Vector storage and enhanced features
-chromadb == 0.4.15  # Persistent vector storage
-# sqlalchemy == 2.0.23  # Database ORM for metadata (temporarily disabled due to Python 3.13 compatibility)
-# alembic == 1.12.1  # Database migrations (temporarily disabled due to Python 3.13 compatibility)
+############## Development / Quality ##############
+black==24.8.0
+isort==5.13.2
+flake8==7.0.0
 
-# Additional Utilities (already included in dependencies above, but listing for clarity)
-# pydantic - included with FastAPI
-# typing-extensions - included with FastAPI
-# pathlib - standard library
+############## Optional / Deferred ##############
+# sqlalchemy==2.0.23                # (Deferred) Metadata persistence layer - revisit when DB layer added
+# alembic==1.12.1                   # (Deferred) Schema migrations
+
+############## Transitive Awareness (Not pinned explicitly) ##############
+# pydantic (via fastapi) | starlette (via fastapi) | typing-extensions (via deps)
+# If deterministic builds required, introduce constraints.txt and resolve with pip-tools

@@ -157,6 +157,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.1] - 2025-10-08
+
+### 🔐 Dependency Remediation & Normalization
+
+Applied a hybrid upgrade strategy to resolve version drift, duplication, and potential security exposure from outdated transient chains.
+
+#### Key Actions
+* Replaced monolithic `llama-index` pin with modular packages actually imported (`llama-index-core`, `llama-index-llms-openai`, `llama-index-embeddings-openai`, `llama-index-retrievers-bm25`, `llama-index-vector-stores-chroma`)
+* Removed conflicting `chromadb` pins (0.4.x / 1.0.x) → standardized on `chromadb==0.5.21`
+* Aligned FastAPI stack: `fastapi==0.116.1`, `uvicorn==0.35.0`, (Starlette via transitive compat)
+* Upgraded OpenAI client to `openai==1.75.0` for feature parity & stability
+* Normalized dev/test tooling: `pytest==8.4.1`, `black==24.8.0`, `isort==5.13.2`
+* Added structured grouping and rationale comments inside `requirements.txt`
+
+#### Rationale
+* Reduce onboarding friction (clearer dependency intent)
+* Prevent hidden dependency drift between environments
+* Prepare for future CI lockfile / SBOM generation
+
+#### Validation
+* Smoke import test passed for FastAPI, ChromaDB, all LlamaIndex modular components, OpenAI
+* No import regressions detected
+
+#### Follow Ups (Planned)
+* Introduce `constraints.txt` (or `pip-tools`/`uv lock`) for deterministic builds
+* Re-enable SQLAlchemy & Alembic when persistence layer is implemented
+* Add automated `pip-audit` (or Safety) to CI workflow
+* Periodic quarterly dependency review checklist
+
+---
+
 ## [1.0.0] - 2024-XX-XX
 
 ### Initial Release
