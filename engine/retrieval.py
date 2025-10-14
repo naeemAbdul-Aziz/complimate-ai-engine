@@ -24,14 +24,15 @@ def find_relevant_regulations(contract_node, regulation_index, top_n=5):
 
     query_bundle = QueryBundle(query_str=contract_node.get_content())
     bm25_results = bm25_retriever.retrieve(query_bundle)
-    logger.info("✅ BM25 search results retrieved. Count: %d", len(bm25_results))
+    logger.info("BM25 search results retrieved. Count: %d", len(bm25_results))
 
     vector_results = vector_retriever.retrieve(query_bundle)
-    logger.info("✅ Vector search results retrieved. Count: %d", len(vector_results))
+    logger.info("Vector search results retrieved. Count: %d", len(vector_results))
 
     all_results = bm25_results + vector_results
-    all_results.sort(key=lambda x: x.score, reverse=True)
-    logger.info("✅ Hybrid search results merged. Total candidates: %d", len(all_results))
+    # Some retrievers may return None for score; treat as 0.0 for sorting
+    all_results.sort(key=lambda x: (x.score or 0.0), reverse=True)
+    logger.info("Hybrid search results merged. Total candidates: %d", len(all_results))
 
     unique_results = []
     seen_texts = set()
@@ -41,5 +42,5 @@ def find_relevant_regulations(contract_node, regulation_index, top_n=5):
             unique_results.append(result)
             seen_texts.add(content)
 
-    logger.info("🔎 Returning top %d unique results.", min(top_n, len(unique_results)))
+    logger.info("Returning top %d unique results.", min(top_n, len(unique_results)))
     return unique_results[:top_n]

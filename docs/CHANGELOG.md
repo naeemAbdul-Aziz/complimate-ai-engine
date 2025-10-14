@@ -188,6 +188,37 @@ Applied a hybrid upgrade strategy to resolve version drift, duplication, and pot
 
 ---
 
+## [2.0.2] - 2025-10-08
+
+### 🛡️ Resilience & Operational Telemetry
+
+Focused on stabilizing runtime behavior under external service rate limits and improving diagnosability.
+
+#### Key Enhancements
+* Exponential cooldown/backoff for regulation index rebuilds after consecutive OpenAI 429 / insufficient_quota responses
+* Health endpoint (`GET /health`) enriched with: `cooldown_active`, `cooldown_remaining_seconds`, `regulations_indexed`, `last_rebuild_status`, `consecutive_rate_limits`
+* Centralized version management (`config/version.py`) consumed by API root & health endpoints
+* Conditional auto-rebuild skip when `OPENAI_API_KEY` absent (prevents futile startup attempts)
+* ChromaDB initialization hardened: graceful handling of missing `'_type'` metadata, corrupted collections, and existing collection uniqueness errors with fallback to in-memory mode
+* Added PDF library conflict detection (warns if both `pypdf` and `PyPDF2` installed)
+
+#### Developer Experience
+* Startup logs now clearly enumerate directory readiness, OpenAI key presence, and PDF library warnings
+* Regulation manager exposes internal rebuild result & rate-limit counters for observability via health check
+
+#### Reliability Impact
+* Prevents tight rebuild loops that amplify rate limiting
+* Eliminates 500 errors on `/health` caused by Chroma collection metadata corruption
+* Faster triage through surfaced cooldown timing and last rebuild disposition
+
+#### Follow Ups (Planned)
+* Persist cooldown state across process restarts (optional)
+* Add `/regulations/status` expansion to include last rate-limit error snippet
+* Introduce circuit-breaker for embedding calls at per-minute threshold
+* Expose build metadata (git SHA) in version module
+
+---
+
 ## [1.0.0] - 2024-XX-XX
 
 ### Initial Release

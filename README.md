@@ -2,23 +2,24 @@
 
 ## Overview
 
-The **CompliMate AI Engine v2.0** powers **CompliMate**, an AI-driven platform for contract compliance in **Ghana's petroleum sector**. This enhanced version features advanced regulation indexing, multi-regulation support, and a modern FastAPI architecture.
+The **CompliMate AI Engine v2.0** powers **CompliMate**, an AI-driven platform for contract compliance in **Ghana's petroleum sector**. This enhanced version features advanced regulation indexing and a modern FastAPI architecture. Current active scope: **petroleum regulations only** (future expansion placeholders for mining, environmental, labor exist but are inactive).
 
 ### Core Capabilities
 It automates the analysis of contracts, ensuring they meet regulations like:
 
 - **LI 2204** (Petroleum Local Content Regulations, 2013)
 - **Act 896** (Income Tax Act, 2015)
-- **Multiple regulation support** with categorization and versioning
+- **(Future)** Multi-sector regulation categorization (mining / environmental / labor) – placeholders only today
 
 ### Technology Stack
 Built with **Python** and enhanced with:
 - **LlamaIndex 0.14+** for advanced document parsing and indexing
 - **ChromaDB** for persistent vector storage with fallback capabilities
-- **OpenAI GPT-4 & Embeddings** for intelligent analysis
+- **OpenAI Advanced Models** (primary: GPT-4.1 / GPT-4o, embeddings: text-embedding-3-large, secondary refinement model)
 - **FastAPI v2.0** with modular architecture
 - **Hybrid retrieval** (BM25 + Vector search) for precise regulation matching
-- **Smart indexing** with automatic change detectionI Engine
+- **Two‑Phase Reasoning** (initial extraction + secondary refinement / dedup / severity scoring)
+- **Smart indexing** with automatic change detection
 
 ## Overview
 
@@ -31,7 +32,7 @@ Built with **Python**, the engine leverages:
 - **LlamaIndex** for contract parsing
 - **ChromaDB + GPT-4 models** for storing vector embeddings
 - **(LlamaIndex, ChromaDB, BM25 + Vector search for hybrid retrieval, GPT-4)** for regulation matching
-- **(GPT-4 + logic)** for iolation detection 
+- **(GPT-4 + logic)** for violation detection 
 
 to parse contracts and flag compliance risks efficiently.
 
@@ -40,7 +41,7 @@ to parse contracts and flag compliance risks efficiently.
 ### Core Analysis
 - **Contract Parsing:** Advanced PDF and DOCX contract clause extraction
 - **Compliance Analysis:** Hybrid search (BM25 + embeddings) + GPT for precise regulation matching
-- **Multi-Regulation Support:** Handle multiple regulation files with automatic categorization
+- **(Petroleum Focus)** Currently indexed: LI 2204 (additional categories reserved for future phases)
 - **Performance:** Analyzes contracts in **<5 minutes**, catching **85%+ risks** (internal testing)
 
 ### v2.0 Enhancements
@@ -84,9 +85,13 @@ pip install -r requirements.txt
 
 **4. Configure API Keys (if using external GPT models):**
 
-- Add your openai API key to a `.env` file:
+-- Add your OpenAI API key to a `.env` file:
 ```env
-OPEN_AI_API = your-key-here
+OPENAI_API_KEY=your-key-here
+OPENAI_MODEL=gpt-4.1
+OPENAI_EMBEDDING_MODEL=text-embedding-3-large
+SECONDARY_REASONING_MODEL=gpt-4.1
+ENABLE_SECONDARY_REASONING=True
 ```
 
 - Load the key inside your code using `python-dotenv`.
@@ -120,9 +125,10 @@ python scripts/run_api.py
 - `GET /regulations/` - List all regulations
 - `POST /regulations/rebuild` - Rebuild regulation index
 - `POST /upload` - Upload contract for analysis
-- `POST /analyze` - Start compliance analysis
+- `POST /analysis/start` - Start compliance analysis
 - `GET /analysis/{id}/status` - Check analysis status
 - `GET /analysis/{id}/results` - Get analysis results
+- Static mounts: `GET /ui` (demo frontend), `GET /reports/{file}` (generated reports)
 
 ### Output
 
@@ -137,7 +143,127 @@ This project is **proprietary**. All rights reserved. Contact us for licensing d
 
 ## Contact
 
+
+---
+
+## Docker Deployment
+
+### Build Image
+```bash
+docker build -t complimate-ai-engine:latest .
+```
+
+### Run Container
+```bash
+docker run --rm -p 8000:8000 \
+  -e OPENAI_API_KEY=your_key_here \
+  -e ENABLE_WEBSOCKETS=True \
+  -v $(pwd)/data/regulations:/app/data/regulations:ro \
+  -v $(pwd)/vector_store:/app/vector_store \
+  complimate-ai-engine:latest
+```
+
+### Environment Variables (Selected)
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| OPENAI_API_KEY | OpenAI authentication | (none) |
+| OPENAI_MODEL | Primary reasoning model (prompt-level extraction) | gpt-4.1 |
+| OPENAI_EMBEDDING_MODEL | Embedding model for vector store | text-embedding-3-large |
+| SECONDARY_REASONING_MODEL | Secondary high-precision refinement model | gpt-4.1 |
+| ENABLE_SECONDARY_REASONING | Enable second-pass refinement (dedupe, severity, confidence) | True |
+| ENABLE_WEBSOCKETS | Enable realtime progress | True |
+| REQUIRE_API_KEY | Enforce API key on protected endpoints | False |
+| API_KEY | Shared secret when REQUIRE_API_KEY=True | (none) |
+| MAX_WS_CONNECTIONS | Cap concurrent WebSocket connections | 100 |
+
+### Health Check
+```bash
+curl -s http://localhost:8000/health | jq
+```
+
+---
+
+## Continuous Integration (GitHub Actions)
+
+Two workflows:
+
+1. `ci.yml` (on PR & main):
+	- Install deps, lint (syntax compile), run tests, build Docker image.
+2. `release.yml` (on tag `v*`):
+	- Tests + optional `pip-audit` + build & push image to GHCR.
+
+### Tagging a Release
+```bash
+git tag v2.0.2
+git push origin v2.0.2
+```
+This pushes container: `ghcr.io/<owner>/complimate-ai-engine:v2.0.2`.
+
+---
+
+## WebSockets (Realtime Progress)
+
+Endpoint: `ws://localhost:8000/ws/analysis/{analysis_id}` (enabled when `ENABLE_WEBSOCKETS=True`)
+
+Example:
+```js
+const ws = new WebSocket('ws://localhost:8000/ws/analysis/demo');
+ws.onmessage = e => console.log(JSON.parse(e.data));
+```
+See `docs/WEBSOCKETS.md` for full schema.
+
+---
+
 📧 **Email:** coming soon
 
 For more about **CompliMate**, see our landing page - complighana.com
 > **Powering Compliance with AI for Ghana’s Petroleum Sector** 
+
+---
+
+## Docs
+
+- Investor & Buyer Brief: docs/complimate-investor-and-buyer-brief.md
+
+---
+
+## Two‑Phase Reasoning Pipeline (High Fidelity Mode)
+
+1. Extraction (Primary Model: `OPENAI_MODEL`)
+  - Parallel clause × regulation pairing prompts
+  - Produces candidate violation objects with raw issue descriptions.
+2. Refinement (Secondary Model: `SECONDARY_REASONING_MODEL`)
+  - Activated when `ENABLE_SECONDARY_REASONING=True`.
+  - Deduplicates semantically similar findings.
+  - Adds: `severity` (Low|Medium|High|Critical), `confidence` (0–1), `rationale` sentence.
+  - Removes low-evidence / unsupported candidates.
+
+Refinement stats are embedded in each report under the `refinement` block.
+
+If the secondary pass fails (timeout / API error) the original extraction set is preserved (fail‑open for safety).
+
+### Choosing Models for Maximum Reasoning Fidelity
+
+Recommended production trio:
+| Role | Env Var | Suggested Model |
+|------|---------|-----------------|
+| Primary extraction | OPENAI_MODEL | gpt-4.1 (or gpt-4o if cost sensitive) |
+| Embeddings | OPENAI_EMBEDDING_MODEL | text-embedding-3-large |
+| Secondary refinement | SECONDARY_REASONING_MODEL | gpt-4.1 |
+
+You can downshift to `gpt-4o-mini` for primary if throughput > cost ratio is critical; keep refinement on `gpt-4.1` to retain precision.
+
+### Re-indexing After Embedding Model Changes
+
+If you change `OPENAI_EMBEDDING_MODEL`, purge the existing vector store to avoid mixed dimensionality:
+
+```bash
+rm -rf vector_store/*  # or corresponding persistent volume contents
+python scripts/rebuild_regulations.py  # (future utility) or trigger rebuild endpoint
+```
+
+### Observability
+- Report includes `models` block enumerating active model IDs and whether secondary was enabled.
+- Future: expose via `/health` or `/meta` endpoint.
+
+---

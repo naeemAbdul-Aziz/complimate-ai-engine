@@ -5,6 +5,45 @@ import datetime
 import os
 from fpdf import FPDF
 
+
+def _sanitize_text(text: str) -> str:
+    """Convert unicode characters not supported by core PDF fonts (latin-1) to safe ASCII.
+
+    This avoids 'latin-1' encode errors in legacy/core-font FPDF by replacing common
+    punctuation and symbols with near-equivalents, and dropping/marking others.
+    """
+    if text is None:
+        return ""
+    # Common replacements
+    replacements = {
+        "\u2014": "--",   # em dash —
+        "\u2013": "-",    # en dash –
+        "\u2012": "-",    # figure dash
+        "\u2010": "-",    # hyphen
+        "\u2212": "-",    # minus sign −
+        "\u00b7": "-",    # middle dot ·
+        "\u2022": "-",    # bullet •
+        "\u2026": "...",  # ellipsis …
+        "\u00a0": " ",    # non-breaking space
+        "\u2018": "'",    # left single quote ‘
+        "\u2019": "'",    # right single quote ’
+        "\u201c": '"',    # left double quote “
+        "\u201d": '"',    # right double quote ”
+        "\u2032": "'",    # prime ′
+        "\u2033": '"',    # double prime ″
+    }
+    for k, v in replacements.items():
+        text = text.replace(k, v)
+    # Replace any remaining non-latin1 characters with '?'
+    safe = []
+    for ch in text:
+        try:
+            ch.encode("latin-1")
+            safe.append(ch)
+        except UnicodeEncodeError:
+            safe.append("?")
+    return "".join(safe)
+
 # Configure logging for this module
 logger = logging.getLogger(__name__)
 
@@ -37,14 +76,16 @@ class PDF(FPDF):
         self.set_font('Arial', 'B', 11)
         self.set_text_color(255, 255, 255)
         self.set_y(5)
-        self.cell(0, 5, f'Compliance Report: {self.contract_name}', 0, 1, 'C')
+        self.cell(0, 5, _sanitize_text(f'Compliance Report: {self.contract_name}'), 0, 1, 'C')
         self.set_text_color(*DEFAULT_COLOR)
         self.ln(5)
 
     def footer(self):
         self.set_y(-15)
         self.set_font('Arial', 'I', 8)
-        footer_text = f'Regulation: {os.path.basename(self.regulation_file)} | Page {self.page_no()}/{{nb}}'
+        footer_text = _sanitize_text(
+            f'Regulation: {os.path.basename(self.regulation_file)} | Page {self.page_no()}/{{nb}}'
+        )
         self.set_text_color(100, 100, 100)
         self.cell(0, 10, footer_text, 0, 0, 'C')
         self.set_text_color(*DEFAULT_COLOR)
@@ -52,13 +93,13 @@ class PDF(FPDF):
     def chapter_title(self, title):
         self.set_font('Arial', 'B', 13)
         self.set_text_color(*BRAND_GREEN)
-        self.cell(0, 10, title, 0, 1, 'L')
+        self.cell(0, 10, _sanitize_text(title), 0, 1, 'L')
         self.set_text_color(*DEFAULT_COLOR)
         self.ln(2)
 
     def chapter_body(self, text, font_size=11):
         self.set_font('Arial', '', font_size)
-        self.multi_cell(0, 6, text)
+        self.multi_cell(0, 6, _sanitize_text(text))
         self.ln()
 
     def add_violation(self, index, violation):
@@ -70,15 +111,15 @@ class PDF(FPDF):
 
         self.set_text_color(*color)
         if type == "Universal Clause Issue":
-            self.cell(0, 6, f"{index}. [Universal Clause] {violation.get('description', 'N/A')}", 0, 1)  # Different format
+            self.cell(0, 6, _sanitize_text(f"{index}. [Universal Clause] {violation.get('description', 'N/A')}") , 0, 1)  # Different format
         else:
-            self.cell(0, 6, f"{index}. [{severity}] {category}", 0, 1)  # Original format
+            self.cell(0, 6, _sanitize_text(f"{index}. [{severity}] {category}"), 0, 1)  # Original format
         self.set_text_color(*DEFAULT_COLOR)
 
         self.set_font('Arial', '', 10)
-        self.multi_cell(0, 5, f"   Issue: {violation.get('description', 'N/A')}")
+        self.multi_cell(0, 5, _sanitize_text(f"   Issue: {violation.get('description', 'N/A')}"))
         if type != "Universal Clause Issue":
-            self.multi_cell(0, 5, f"   Regulation Ref: {violation.get('regulation_ref', 'N/A')}")  # Only for regulation issues
+            self.multi_cell(0, 5, _sanitize_text(f"   Regulation Ref: {violation.get('regulation_ref', 'N/A')}"))  # Only for regulation issues
         self.ln(3)
 
 
@@ -168,18 +209,18 @@ def generate_pdf_report(report_data, output_file="analysis_report.pdf"):
 
         pdf.set_font("Arial", 'B', 18)
         pdf.set_text_color(*BRAND_GREEN)
-        pdf.cell(0, 20, "Contract Compliance Analysis Report", 0, 1, 'C')
+        pdf.cell(0, 20, _sanitize_text("Contract Compliance Analysis Report"), 0, 1, 'C')
         pdf.set_text_color(*DEFAULT_COLOR)
         pdf.ln(4)
         pdf.set_font("Arial", '', 12)
-        pdf.cell(0, 10, f"Contract: {contract_name}", 0, 1, 'C')
-        pdf.cell(0, 10, f"Regulation Analyzed: {os.path.basename(regulation_file)}", 0, 1, 'C')
-        pdf.cell(0, 10, f"Analysis Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 0, 1, 'C')
+        pdf.cell(0, 10, _sanitize_text(f"Contract: {contract_name}"), 0, 1, 'C')
+        pdf.cell(0, 10, _sanitize_text(f"Regulation Analyzed: {os.path.basename(regulation_file)}"), 0, 1, 'C')
+        pdf.cell(0, 10, _sanitize_text(f"Analysis Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"), 0, 1, 'C')
         pdf.ln(10)
 
         pdf.chapter_title("CompliMate Analysis Summary")
         pdf.set_font('Arial', '', 11)
-        pdf.multi_cell(0, 5, f"Total potential compliance issues identified: {len(violations)}")
+        pdf.multi_cell(0, 5, _sanitize_text(f"Total potential compliance issues identified: {len(violations)}"))
 
         regulation_violations = [v for v in violations if v.get('type') == 'Potential Compliance Issue']
         universal_clause_issues = [v for v in violations if v.get('type') == 'Universal Clause Issue']
@@ -197,33 +238,33 @@ def generate_pdf_report(report_data, output_file="analysis_report.pdf"):
             if count > 0:
                 pdf.set_text_color(*SEVERITY_COLORS.get(severity, DEFAULT_COLOR))
                 pdf.cell(20)
-                pdf.cell(0, 5, f"- {severity}: {count}", 0, 1)
+                pdf.cell(0, 5, _sanitize_text(f"- {severity}: {count}"), 0, 1)
         pdf.set_text_color(*DEFAULT_COLOR)
         pdf.ln(5)
 
         pdf.set_font('Arial', 'B', 11)
-        pdf.cell(0, 6, "Universal Clause Issues:", 0, 1)
+        pdf.cell(0, 6, _sanitize_text("Universal Clause Issues:"), 0, 1)
         pdf.set_font('Arial', '', 11)
         pdf.cell(20)
-        pdf.cell(0, 5, f"- Total: {len(universal_clause_issues)}", 0, 1)
+        pdf.cell(0, 5, _sanitize_text(f"- Total: {len(universal_clause_issues)}"), 0, 1)
 
         pdf.add_page()
-        pdf.chapter_title("Detailed Regulatory Compliance Issues")
+        pdf.chapter_title(_sanitize_text("Detailed Regulatory Compliance Issues"))
         if regulation_violations:
             for idx, violation in enumerate(regulation_violations, start=1):
                 pdf.add_violation(idx, violation)
         else:
             pdf.set_font('Arial', '', 11)
-            pdf.multi_cell(0, 5, "No potential regulatory compliance issues identified during the analysis.")
+            pdf.multi_cell(0, 5, _sanitize_text("No potential regulatory compliance issues identified during the analysis."))
 
         pdf.add_page()
-        pdf.chapter_title("Universal Clause Issues")
+        pdf.chapter_title(_sanitize_text("Universal Clause Issues"))
         if universal_clause_issues:
             for idx, violation in enumerate(universal_clause_issues, start=1):
                 pdf.add_violation(idx, violation)
         else:
             pdf.set_font('Arial', '', 11)
-            pdf.multi_cell(0, 5, "No universal clause issues identified during the analysis.")
+            pdf.multi_cell(0, 5, _sanitize_text("No universal clause issues identified during the analysis."))
 
         pdf.output(output_file, "F")
         logger.info(f"PDF report successfully generated: {output_file}")

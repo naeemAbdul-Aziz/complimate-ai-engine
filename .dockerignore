@@ -1,0 +1,32 @@
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.pytest_cache
+.pytest_cache
+.mypy_cache
+.venv
+venv
+.env
+.env.*
+
+# Logs & reports
+logs
+reports
+
+# Local data that should not bloat image
+vector_store
+uploads
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Misc
+.DS_Store
+*.swp

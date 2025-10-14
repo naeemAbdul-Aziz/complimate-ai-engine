@@ -69,7 +69,41 @@ class HealthResponse(BaseModel):
     timestamp: datetime = Field(..., description="Current timestamp")
     regulation_loaded: bool = Field(..., description="Whether regulation index is loaded")
     openai_configured: bool = Field(..., description="Whether OpenAI is configured")
-    version: str = Field("1.0.0", description="API version")
+    version: str = Field("0.0.0", description="API version")
+    cooldown_active: bool | None = Field(None, description="Whether regulation indexing is cooling down after rate limits")
+    cooldown_remaining_seconds: int | None = Field(None, description="Seconds remaining in cooldown if active")
+    regulations_indexed: int | None = Field(None, description="Number of regulations currently indexed")
+    last_rebuild_status: str | None = Field(None, description="Last rebuild attempt status")
+    consecutive_rate_limits: int | None = Field(None, description="Consecutive rate-limit errors encountered")
+
+
+# WebSocket Event Schemas
+class WebSocketEvent(BaseModel):
+    """Base WebSocket event envelope."""
+    type: str = Field(..., description="Event type (progress, violation, complete, error, heartbeat)")
+    analysis_id: str = Field(..., description="Associated analysis identifier")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Event timestamp (UTC)")
+    schema_version: int = Field(1, description="Schema version for forward compatibility")
+    payload: Dict[str, Any] = Field(default_factory=dict, description="Event-specific payload")
+
+class AnalysisProgressPayload(BaseModel):
+    stage: str = Field(..., description="Current analysis stage")
+    detail: Optional[str] = Field(None, description="Additional detail about progress")
+    current: Optional[int] = Field(None, description="Current progress count")
+    total: Optional[int] = Field(None, description="Total count if known")
+
+class AnalysisViolationPayload(BaseModel):
+    severity: str = Field(..., description="Violation severity")
+    category: str = Field(..., description="Violation category")
+    regulation_ref: str = Field(..., description="Regulation reference")
+
+class AnalysisCompletePayload(BaseModel):
+    violations: int = Field(..., description="Total violations identified")
+    duration_seconds: float = Field(..., description="Duration of analysis in seconds")
+
+class AnalysisErrorPayload(BaseModel):
+    message: str = Field(..., description="Error message")
+    retryable: bool = Field(True, description="Whether the error is retryable")
 
 
 class ContractUploadResponse(BaseModel):

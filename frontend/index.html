@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CompliMate – Contract Compliance</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>CompliMate</h1>
+    <p>AI-powered contract compliance for Ghana's petroleum sector</p>
+  </header>
+
+  <main>
+    <section id="health-section" class="card">
+      <h2>Backend Health</h2>
+      <button id="btn-health">Check Health</button>
+      <pre id="health-out"></pre>
+    </section>
+
+    <section id="upload-section" class="card">
+  <h2>Upload Contract</h2>
+  <label for="file-input">Select a contract file</label>
+  <input type="file" id="file-input" accept="application/pdf,.pdf,.txt,.docx" title="Choose a contract file to upload" />
+      <button id="btn-upload">Upload</button>
+      <div class="kv">
+        <div>File ID:</div>
+        <div id="file-id">—</div>
+      </div>
+      <div class="kv">
+        <div>Stored Path:</div>
+        <div id="file-path">—</div>
+      </div>
+      <div class="hint">Accepted: .pdf, .txt, .docx</div>
+    </section>
+
+    <section id="analyze-section" class="card">
+      <h2>Analyze</h2>
+      <button id="btn-analyze" disabled>Start Analysis</button>
+      <div class="kv"><div>Status:</div><div id="status">—</div></div>
+      <div class="kv"><div>Progress:</div><div id="progress">—</div></div>
+      <div class="kv"><div>Analysis ID:</div><div id="analysis-id">—</div></div>
+      <div class="kv"><div>Reports:</div><div id="reports">—</div></div>
+    </section>
+
+    <section id="ws-section" class="card">
+      <h2>Realtime Progress (WebSocket)</h2>
+      <div class="row">
+        <input id="ws-analysis-id" placeholder="analysis_id" />
+        <button id="btn-ws-connect">Connect</button>
+      </div>
+      <pre id="ws-out"></pre>
+    </section>
+  </main>
+
+  <footer>
+    <small>© CompliMate</small>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -65,6 +65,13 @@ class RegulationManager(LoggerMixin):
         self.regulations_metadata: Dict[str, RegulationMetadata] = {}
         self.metadata_file = settings.REGULATIONS_DIR / "regulations_metadata.json"
         self.using_persistent_storage = False
+        # Rate limit / cooldown state
+        self._last_rebuild_attempt: Optional[datetime] = None
+        self._consecutive_rate_limits: int = 0
+        self._cooldown_seconds_base: int = 30  # base cooldown after 429
+        self._max_cooldown_seconds: int = 15 * 60  # cap at 15 minutes
+        self._last_rebuild_result: Optional[Dict[str, Any]] = None
+        self._last_rate_limit_error: Optional[str] = None
         
         # Initialize storage
         self._initialize_storage()
@@ -351,6 +358,23 @@ class RegulationManager(LoggerMixin):
     def rebuild_index(self, force: bool = False) -> Dict[str, Any]:
         """Rebuild the entire regulation index."""
         try:
+            now = datetime.utcnow()
+            # Cooldown check
+            if self._last_rebuild_attempt and self._consecutive_rate_limits > 0:
+                elapsed = (now - self._last_rebuild_attempt).total_seconds()
+                cooldown = min(self._cooldown_seconds_base * (2 ** (self._consecutive_rate_limits - 1)), self._max_cooldown_seconds)
+                if elapsed < cooldown and not force:
+                    remaining = int(cooldown - elapsed)
+                    self.logger.warning(
+                        f"Skipping rebuild due to active cooldown after rate limits. Try again in ~{remaining}s"
+                    )
+                    return {
+                        "status": "cooldown",
+                        "cooldown_remaining_seconds": remaining,
+                        "last_result": self._last_rebuild_result,
+                        "rate_limit_errors": self._consecutive_rate_limits
+                    }
+            self._last_rebuild_attempt = now
             self.logger.info("Starting regulation index rebuild...")
             
             # Discover all regulation files
@@ -388,8 +412,18 @@ class RegulationManager(LoggerMixin):
                     })
                     
                 except Exception as e:
+                    msg = str(e)
+                    if "429" in msg or "rate limit" in msg.lower() or "insufficient_quota" in msg:
+                        self._consecutive_rate_limits += 1
+                        self._last_rate_limit_error = msg
+                        self.logger.error(
+                            f"Rate limit related failure while processing {file_path.name}: {msg} (consecutive={self._consecutive_rate_limits})"
+                        )
+                    else:
+                        # Reset rate limit counter on non-429 errors
+                        self._consecutive_rate_limits = 0
                     self.logger.error(f"Failed to process {file_path}: {e}")
-                    error_files.append({"file_name": file_path.name, "error": str(e)})
+                    error_files.append({"file_name": file_path.name, "error": msg})
             
             result = {
                 "status": "completed",
@@ -402,6 +436,12 @@ class RegulationManager(LoggerMixin):
                 "total_regulations": len(self.regulations_metadata)
             }
             
+            # Reset cooldown counters if success and at least one file processed
+            if result["files_processed"] > 0 and result["files_failed"] == 0:
+                self._consecutive_rate_limits = 0
+                self._last_rate_limit_error = None
+
+            self._last_rebuild_result = result
             self.logger.info(f"Index rebuild completed: {result}")
             return result
             
@@ -432,9 +472,15 @@ class RegulationManager(LoggerMixin):
     def get_regulation_index(self) -> Optional[VectorStoreIndex]:
         """Get the current regulation index."""
         if self.regulation_index is None:
-            self.logger.info("No regulation index found, building...")
+            self.logger.info("No regulation index found, initiating conditional rebuild...")
+            # Skip auto rebuild if OpenAI not configured (would fail anyway)
+            if not settings.OPENAI_API_KEY:
+                self.logger.warning("Skipping rebuild: OPENAI_API_KEY not configured")
+                return None
             result = self.rebuild_index()
-            if result["files_processed"] == 0:
+            if result.get("status") == "cooldown":
+                self.logger.warning("Rebuild skipped due to cooldown; index remains unavailable")
+            elif result["files_processed"] == 0:
                 self.logger.warning("No regulations were indexed")
         
         return self.regulation_index

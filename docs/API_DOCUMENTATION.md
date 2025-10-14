@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **CompliMate API v2.0** provides comprehensive endpoints for contract compliance analysis against Ghanaian regulations. This enhanced version features multi-regulation support, persistent vector storage, and advanced regulation management capabilities.
+The CompliMate API v2.0 provides endpoints for contract compliance analysis against Ghanaian regulations. This version features multi‑regulation support, persistent vector storage, and advanced regulation management capabilities. Current active scope: petroleum regulations only (LI 2204).
 
 ### Key Features
 - **Multi-Regulation Support** - Handle multiple regulation files with categorization
@@ -21,11 +21,11 @@ http://localhost:8000
 - **ReDoc:** http://localhost:8000/redoc
 
 ## Authentication
-Currently, no authentication is required. The API uses OpenAI API key configured via environment variables.
+Currently, no authentication is required. The service uses an OpenAI API key configured via environment variables.
 
 ## Endpoints
 
-### Regulation Management (New in v2.0)
+### Regulation Management
 
 #### 1. List Regulations
 **GET** `/regulations/`
@@ -57,7 +57,7 @@ Get a list of all available regulations with their metadata.
 ```
 
 #### 2. Rebuild Regulation Index
-**POST** `/regulations/rebuild`
+POST `/regulations/rebuild`
 
 Rebuild the regulation index, optionally forcing re-indexing of all files.
 
@@ -82,7 +82,7 @@ Rebuild the regulation index, optionally forcing re-indexing of all files.
 ```
 
 #### 3. Regulation System Status
-**GET** `/regulations/status`
+GET `/regulations/status`
 
 Get the current status of the regulation management system.
 
@@ -102,7 +102,7 @@ Get the current status of the regulation management system.
 ### Contract Analysis
 
 #### 4. Health Check
-**GET** `/health`
+GET `/health`
 
 Check if the API server and dependencies are running properly.
 
@@ -120,7 +120,7 @@ Check if the API server and dependencies are running properly.
 ```
 
 #### 5. Upload Contract
-**POST** `/upload`
+POST `/upload`
 
 Upload a contract file for analysis. Supports PDF, TXT, and DOCX files.
 
@@ -142,15 +142,21 @@ Upload a contract file for analysis. Supports PDF, TXT, and DOCX files.
 - `400`: Invalid file type
 - `500`: Upload error
 
-### 3. Start Analysis
-**POST** `/analyze/{file_id}`
+#### 6. Start Analysis
+POST `/analysis/start`
 
-Start compliance analysis for an uploaded contract file.
+Start compliance analysis for a previously uploaded contract file.
 
-**Parameters:**
-- `file_id`: UUID of the uploaded file (from upload response)
+Request body:
+```json
+{
+  "file_id": "uuid-string",
+  "priority": "normal",
+  "include_universal_clauses": true
+}
+```
 
-**Response:**
+Response:
 ```json
 {
   "message": "Analysis started successfully",
@@ -164,15 +170,15 @@ Start compliance analysis for an uploaded contract file.
 - `404`: File not found
 - `500`: Analysis start error
 
-### 4. Check Analysis Status
-**GET** `/status/{analysis_id}`
+#### 7. Check Analysis Status
+GET `/analysis/{analysis_id}/status`
 
 Check the status of a running analysis.
 
 **Parameters:**
 - `analysis_id`: UUID of the analysis (from analyze response)
 
-**Response (In Progress):**
+Response (In Progress):
 ```json
 {
   "analysis_id": "uuid-string",
@@ -182,7 +188,7 @@ Check the status of a running analysis.
 }
 ```
 
-**Response (Completed):**
+Response (Completed):
 ```json
 {
   "analysis_id": "uuid-string",
@@ -196,14 +202,14 @@ Check the status of a running analysis.
     "analysis_duration": "3.2 minutes"
   },
   "report_paths": {
-    "json": "/path/to/report.json",
-    "text": "/path/to/report.txt",
-    "pdf": "/path/to/report.pdf"
+    "json_file": "/reports/sample-contract_20250505_152235_report.json",
+    "txt": "/reports/sample-contract_20250505_152235_report.txt",
+    "pdf": "/reports/sample-contract_20250505_152235_report.pdf"
   }
 }
 ```
 
-**Response (Error):**
+Response (Error):
 ```json
 {
   "analysis_id": "uuid-string",
@@ -213,15 +219,12 @@ Check the status of a running analysis.
 }
 ```
 
-### 5. Get Analysis Results
-**GET** `/results/{analysis_id}`
+#### 8. Get Analysis Results
+GET `/analysis/{analysis_id}/results`
 
 Get the detailed analysis results as JSON.
 
-**Parameters:**
-- `analysis_id`: UUID of the completed analysis
-
-**Response:**
+Response:
 ```json
 {
   "contract_name": "sample-contract.pdf",
@@ -247,41 +250,16 @@ Get the detailed analysis results as JSON.
 }
 ```
 
-### 6. Download Report
-**GET** `/download/{analysis_id}/{format}`
+Note: If the analysis is not completed yet, this endpoint returns HTTP 409.
 
-Download the analysis report in the specified format.
+#### 9. Download Reports
+There is no dedicated download route. Reports are exposed under the static mount at `/reports`. Use the `report_paths` URLs provided by the status or results responses to download JSON/TXT/PDF directly.
 
-**Parameters:**
-- `analysis_id`: UUID of the completed analysis
-- `format`: Report format (`json`, `txt`, or `pdf`)
+### Static Frontend and WebSockets
 
-**Response:**
-- **Content-Type:** Depends on format
-  - `json`: `application/json`
-  - `txt`: `text/plain`
-  - `pdf`: `application/pdf`
-- **Body:** File content for download
-
-### 7. List Active Analyses
-**GET** `/analyses`
-
-Get a list of all active and recent analyses.
-
-**Response:**
-```json
-{
-  "active_analyses": [
-    {
-      "analysis_id": "uuid-string",
-      "contract_name": "contract1.pdf",
-      "status": "running",
-      "started_at": "2025-09-28T14:30:00.123456"
-    }
-  ],
-  "total_active": 1
-}
-```
+- Frontend UI: GET `/ui` serves a simple web demo for health, upload, and analysis.
+- Reports: Static files are available under `/reports`.
+- WebSocket progress (optional): `ws://localhost:8000/ws/analysis/{analysis_id}`.
 
 ## Error Handling
 
@@ -316,19 +294,21 @@ const uploadResponse = await fetch('/upload', {
 const uploadData = await uploadResponse.json();
 
 // 2. Start analysis
-const analyzeResponse = await fetch(`/analyze/${uploadData.file_id}`, {
-  method: 'POST'
+const startResponse = await fetch('/analysis/start', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ file_id: uploadData.file_id })
 });
-const analyzeData = await analyzeResponse.json();
+const startData = await startResponse.json();
 
 // 3. Poll for completion
 const checkStatus = async (analysisId) => {
-  const statusResponse = await fetch(`/status/${analysisId}`);
+  const statusResponse = await fetch(`/analysis/${analysisId}/status`);
   const statusData = await statusResponse.json();
   
   if (statusData.status === 'completed') {
     // Get results
-    const resultsResponse = await fetch(`/results/${analysisId}`);
+    const resultsResponse = await fetch(`/analysis/${analysisId}/results`);
     const results = await resultsResponse.json();
     return results;
   } else if (statusData.status === 'error') {
@@ -339,7 +319,7 @@ const checkStatus = async (analysisId) => {
   }
 };
 
-checkStatus(analyzeData.analysis_id);
+checkStatus(startData.analysis_id);
 ```
 
 ### curl Examples
@@ -352,13 +332,13 @@ curl http://localhost:8000/health
 curl -X POST -F "file=@contract.pdf" http://localhost:8000/upload
 
 # Start analysis
-curl -X POST http://localhost:8000/analyze/{file_id}
+curl -X POST http://localhost:8000/analysis/start -H "Content-Type: application/json" -d '{"file_id":"{file_id}"}'
 
 # Check status
-curl http://localhost:8000/status/{analysis_id}
+curl http://localhost:8000/analysis/{analysis_id}/status
 
-# Download PDF report
-curl http://localhost:8000/download/{analysis_id}/pdf --output report.pdf
+# Results (and follow report_paths to download)
+curl http://localhost:8000/analysis/{analysis_id}/results
 ```
 
 ## Development
@@ -366,7 +346,7 @@ curl http://localhost:8000/download/{analysis_id}/pdf --output report.pdf
 To start the development server:
 
 ```bash
-python run_api.py
+python scripts/run_api.py
 ```
 
 The server will start with auto-reload enabled for development.

@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from llama_index.core import VectorStoreIndex, Document, Settings
 from llama_index.llms.openai import OpenAI
 from llama_index.embeddings.openai import OpenAIEmbedding
+from config.settings import settings as app_settings
 from PyPDF2 import PdfReader
 
 # Import engine modules
@@ -118,10 +119,9 @@ async def main():
     logger.info("=== Starting Contract Compliance Analysis ===")
 
     try:
-        # Validate environment configuration
+        # Validate environment configuration (allow stub free mode)
         if not openai_api_key:
-            logger.critical("OPENAI_API_KEY not found in environment variables")
-            logger.critical("Please set your OpenAI API key and restart the application")
+            logger.critical("OPENAI_API_KEY not configured. Cannot run analysis.")
             return False
 
         # Ensure output directory exists with proper error handling
@@ -139,19 +139,15 @@ async def main():
         init_start = time.time()
         
         try:
-            # Configure models with appropriate timeouts for production
-            Settings.llm = OpenAI(model="gpt-4", api_key=openai_api_key, request_timeout=180.0)
-            Settings.embed_model = OpenAIEmbedding(model="text-embedding-ada-002", api_key=openai_api_key)
-            
+            Settings.llm = OpenAI(model=app_settings.OPENAI_MODEL, api_key=openai_api_key, request_timeout=app_settings.OPENAI_REQUEST_TIMEOUT)
+            Settings.embed_model = OpenAIEmbedding(model=app_settings.OPENAI_EMBEDDING_MODEL, api_key=openai_api_key)
             init_duration = time.time() - init_start
             log_performance("model_initialization", init_duration, True)
-            logger.info("LLM and Embedding models initialized successfully")
-            
+            logger.info("LLM initialized (primary=%s, embedding=%s)", app_settings.OPENAI_MODEL, app_settings.OPENAI_EMBEDDING_MODEL)
         except Exception as e:
             init_duration = time.time() - init_start
             log_performance("model_initialization", init_duration, False, {"error": str(e)})
             logger.critical(f"Failed to initialize OpenAI models: {e}")
-            logger.critical("Please verify your API key and network connectivity")
             return False
 
         # Load and process regulation documents
@@ -307,6 +303,24 @@ async def main():
             logger.exception(f"Critical error during asyncio.gather or batch processing for {contract_file_name}: {e}")
             # all_violations remains empty
 
+        # --- Optional Secondary Reasoning Refinement ---
+        refinement_stats = {
+            "enabled": False,
+            "pre_refinement_count": len(all_violations),
+            "post_refinement_count": len(all_violations),
+            "reduction": 0,
+        }
+        if app_settings.ENABLE_SECONDARY_REASONING and all_violations:
+            try:
+                from engine.reasoning_refinement import refine_violations  # local import to avoid circular
+                refinement_stats["enabled"] = True
+                refined = refine_violations(all_violations)
+                refinement_stats["post_refinement_count"] = len(refined)
+                refinement_stats["reduction"] = refinement_stats["pre_refinement_count"] - len(refined)
+                all_violations = refined
+            except Exception as re:
+                logger.exception(f"Secondary refinement failed: {re}")
+
         # --- Generate Reports ---
         logger.info(f"Generating reports for {contract_file_name}...")
         report_data = {
@@ -319,6 +333,13 @@ async def main():
             "failed_responses": sum(1 for r in batch_responses if isinstance(r, Exception)),
             "potential_issues_found": len(all_violations),
             "violations": all_violations, # Contains detailed violation dicts
+            "refinement": refinement_stats,
+            "models": {
+                "primary": app_settings.OPENAI_MODEL,
+                "embedding": app_settings.OPENAI_EMBEDDING_MODEL,
+                "secondary_reasoning": app_settings.SECONDARY_REASONING_MODEL,
+                "secondary_enabled": app_settings.ENABLE_SECONDARY_REASONING,
+            }
         }
 
         # Define report paths

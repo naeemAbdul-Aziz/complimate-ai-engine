@@ -19,6 +19,7 @@ import logging.handlers
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional, Union
+import locale
 
 # Import application settings with fallback
 try:
@@ -87,6 +88,30 @@ class LoggerAdapter(logging.LoggerAdapter):
             kwargs['extra']['session_id'] = getattr(self.logger, '_session_id')
             
         return msg, kwargs
+
+
+class SafeConsoleHandler(logging.StreamHandler):
+    """Console handler that never crashes on Unicode encode errors.
+
+    On Windows (cp1252), certain Unicode characters (emojis) cause
+    UnicodeEncodeError when writing to the console. This handler falls back
+    to replacing unsupported characters for console output while preserving
+    full Unicode in file logs.
+    """
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            msg = self.format(record)
+            stream = self.stream
+            encoding = getattr(stream, 'encoding', None) or locale.getpreferredencoding(False) or 'utf-8'
+            try:
+                stream.write(msg + self.terminator)
+            except UnicodeEncodeError:
+                safe = msg.encode(encoding, errors='replace').decode(encoding, errors='replace')
+                stream.write(safe + self.terminator)
+            self.flush()
+        except Exception:
+            self.handleError(record)
 
 
 def configure_logging(
@@ -169,7 +194,7 @@ def configure_logging(
         console_formatter = file_formatter
     
     # Console handler
-    console_handler = logging.StreamHandler()
+    console_handler = SafeConsoleHandler()
     console_handler.setLevel(getattr(logging, settings.LOG_LEVEL))
     console_handler.setFormatter(console_formatter)
     root_logger.addHandler(console_handler)
@@ -178,7 +203,8 @@ def configure_logging(
     main_handler = logging.handlers.RotatingFileHandler(
         log_files['main'],
         maxBytes=20 * 1024 * 1024,  # 20MB
-        backupCount=10
+        backupCount=10,
+        encoding='utf-8'
     )
     main_handler.setLevel(logging.INFO)
     main_handler.setFormatter(file_formatter)
@@ -191,7 +217,8 @@ def configure_logging(
     error_handler = logging.handlers.RotatingFileHandler(
         log_files['errors'],
         maxBytes=10 * 1024 * 1024,  # 10MB
-        backupCount=5
+        backupCount=5,
+        encoding='utf-8'
     )
     error_handler.setLevel(logging.ERROR)
     error_handler.setFormatter(error_formatter)
@@ -209,7 +236,8 @@ def configure_logging(
             component_handler = logging.handlers.RotatingFileHandler(
                 component_file,
                 maxBytes=15 * 1024 * 1024,  # 15MB
-                backupCount=7
+                backupCount=7,
+                encoding='utf-8'
             )
             component_handler.setLevel(logging.DEBUG)
             component_handler.setFormatter(file_formatter)
@@ -225,7 +253,8 @@ def configure_logging(
     perf_handler = logging.handlers.RotatingFileHandler(
         log_files['performance'],
         maxBytes=5 * 1024 * 1024,  # 5MB
-        backupCount=3
+        backupCount=3,
+        encoding='utf-8'
     )
     perf_handler.setLevel(logging.INFO)
     perf_handler.setFormatter(file_formatter)

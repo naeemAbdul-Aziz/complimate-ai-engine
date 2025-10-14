@@ -28,6 +28,15 @@ from config import settings
 from config.logger import get_component_logger, log_performance
 from utils import LoggerMixin, log_performance
 from api.models.schemas import AnalysisStatus, ViolationModel
+from config import settings
+
+# Optional import for WebSocket broadcasting (decoupled)
+try:
+    from api.realtime import manager as ws_manager
+    from api.models.schemas import WebSocketEvent
+except Exception:  # pragma: no cover - if ws module not loaded
+    ws_manager = None
+    WebSocketEvent = None
 
 
 class AnalysisService(LoggerMixin):
@@ -54,11 +63,13 @@ class AnalysisService(LoggerMixin):
             Settings.llm = OpenAI(
                 model=settings.OPENAI_MODEL,
                 api_key=settings.OPENAI_API_KEY,
-                request_timeout=settings.OPENAI_REQUEST_TIMEOUT
+                request_timeout=settings.OPENAI_REQUEST_TIMEOUT,
+                max_retries=settings.OPENAI_MAX_RETRIES,
             )
             Settings.embed_model = OpenAIEmbedding(
                 model=settings.OPENAI_EMBEDDING_MODEL,
-                api_key=settings.OPENAI_API_KEY
+                api_key=settings.OPENAI_API_KEY,
+                max_retries=settings.OPENAI_MAX_RETRIES,
             )
             
             # Initialize regulation manager and get index
@@ -121,14 +132,28 @@ class AnalysisService(LoggerMixin):
             # Update status
             analysis["status"] = AnalysisStatus.RUNNING
             analysis["progress"] = "Parsing contract document..."
+            await self._broadcast_ws(analysis_id, "progress", {
+                "stage": "parse",
+                "detail": "Parsing contract document"
+            })
             
             # Parse contract
             contract_nodes = parse_contract(analysis["file_path"])
             if not contract_nodes:
                 raise ValueError("No content could be extracted from the contract")
+            await self._broadcast_ws(analysis_id, "progress", {
+                "stage": "chunk",
+                "detail": "Extracted contract sections",
+                "current": len(contract_nodes)
+            })
             
             # Generate prompts and tasks
             analysis["progress"] = f"Generating analysis prompts for {len(contract_nodes)} sections..."
+            await self._broadcast_ws(analysis_id, "progress", {
+                "stage": "prompt_gen",
+                "detail": "Generating prompts",
+                "total": len(contract_nodes)
+            })
             
             tasks = []
             prompt_metadata_list = []
@@ -172,10 +197,19 @@ class AnalysisService(LoggerMixin):
                 analysis["progress"] = "No analysis needed - contract appears compliant"
                 analysis["status"] = AnalysisStatus.COMPLETED
                 analysis["completed_at"] = datetime.datetime.now()
+                await self._broadcast_ws(analysis_id, "complete", {
+                    "violations": 0,
+                    "duration_seconds": (analysis["completed_at"] - analysis["started_at"]).total_seconds()
+                })
                 return
             
             # Execute LLM analysis
             analysis["progress"] = f"Processing {len(tasks)} compliance checks with AI..."
+            await self._broadcast_ws(analysis_id, "progress", {
+                "stage": "llm",
+                "detail": "Submitting compliance checks",
+                "total": len(tasks)
+            })
             
             batch_responses = await asyncio.gather(*tasks, return_exceptions=True)
             
@@ -187,9 +221,18 @@ class AnalysisService(LoggerMixin):
             ]
             
             all_violations = process_batch_violation_responses(typed_batch_responses, prompt_metadata_list)
+            await self._broadcast_ws(analysis_id, "progress", {
+                "stage": "violations",
+                "detail": "Aggregated potential violations",
+                "current": len(all_violations)
+            })
             
             # Generate reports
             analysis["progress"] = "Generating compliance reports..."
+            await self._broadcast_ws(analysis_id, "progress", {
+                "stage": "reporting",
+                "detail": "Generating reports"
+            })
             
             report_data = self._create_report_data(
                 analysis["contract_name"],
@@ -208,6 +251,10 @@ class AnalysisService(LoggerMixin):
             analysis["progress"] = "Analysis completed successfully"
             analysis["results"] = self._create_analysis_summary(all_violations, analysis)
             analysis["report_paths"] = report_paths
+            await self._broadcast_ws(analysis_id, "complete", {
+                "violations": len(all_violations),
+                "duration_seconds": (analysis["completed_at"] - analysis["started_at"]).total_seconds()
+            })
             
             self.logger.info(f"Analysis {analysis_id} completed successfully")
             
@@ -217,6 +264,27 @@ class AnalysisService(LoggerMixin):
             analysis["progress"] = "Analysis failed"
             analysis["error"] = str(e)
             analysis["completed_at"] = datetime.datetime.now()
+            await self._broadcast_ws(analysis_id, "error", {
+                "message": str(e),
+                "retryable": True
+            })
+
+    async def _broadcast_ws(self, analysis_id: str, event_type: str, payload: dict) -> None:
+        """Helper to broadcast a WebSocket event if enabled and manager is available."""
+        try:
+            if not settings.ENABLE_WEBSOCKETS:
+                return
+            if ws_manager is None or WebSocketEvent is None:
+                return
+            evt = WebSocketEvent(type=event_type, analysis_id=analysis_id, payload=payload, schema_version=1)
+            # Throttle high-frequency progress updates to reduce client load
+            if event_type == "progress" and hasattr(ws_manager, "broadcast_throttled"):
+                await ws_manager.broadcast_throttled(analysis_id, evt)
+            else:
+                await ws_manager.broadcast(analysis_id, evt)
+        except Exception:
+            # Don't fail analysis due to WS issues
+            pass
     
     def _create_report_data(
         self, 
@@ -257,8 +325,10 @@ class AnalysisService(LoggerMixin):
         generate_text_report(report_data, str(report_paths["txt"]))
         generate_pdf_report(report_data, str(report_paths["pdf"]))
         
-        # Convert to strings for JSON serialization
-        return {k: str(v) for k, v in report_paths.items()}
+        # Convert to web URLs for the mounted /reports static path
+        def to_url(p: Path) -> str:
+            return f"/reports/{p.name}"
+        return {k: to_url(v) for k, v in report_paths.items()}
     
     def _create_analysis_summary(self, violations: List[dict], analysis: dict) -> dict:
         """Create analysis results summary."""

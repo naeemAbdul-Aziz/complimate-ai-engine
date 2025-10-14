@@ -26,10 +26,20 @@ class Settings:
     
     # OpenAI Configuration
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
-    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4")
-    OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002")
+    # Primary reasoning model (set default to highest reasoning fidelity)
+    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4.1")
+    OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-large")
+    SECONDARY_REASONING_MODEL: str = os.getenv("SECONDARY_REASONING_MODEL", "gpt-4.1")
+    ENABLE_SECONDARY_REASONING: bool = os.getenv("ENABLE_SECONDARY_REASONING", "True").lower() == "true"
     OPENAI_REQUEST_TIMEOUT: float = float(os.getenv("OPENAI_REQUEST_TIMEOUT", "180.0"))
     OPENAI_MAX_RETRIES: int = int(os.getenv("OPENAI_MAX_RETRIES", "3"))
+    
+    # Secondary reasoning specific controls
+    SECONDARY_REASONING_MAX_RETRIES: int = int(os.getenv("SECONDARY_REASONING_MAX_RETRIES", "1"))
+    # INCREASED DEADLINE to 90 seconds (was 20)
+    SECONDARY_REASONING_DEADLINE_SECONDS: float = float(os.getenv("SECONDARY_REASONING_DEADLINE_SECONDS", "90"))
+    # INCREASED REQUEST TIMEOUT to 60 seconds (was 12)
+    SECONDARY_REASONING_REQUEST_TIMEOUT: float = float(os.getenv("SECONDARY_REASONING_REQUEST_TIMEOUT", "60"))
     
     # File paths
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
@@ -53,14 +63,15 @@ class Settings:
     VECTOR_STORE_TYPE: str = os.getenv("VECTOR_STORE_TYPE", "chroma")  # "chroma" or "memory"
     CHROMA_COLLECTION_NAME: str = os.getenv("CHROMA_COLLECTION_NAME", "ghana_regulations")
     
-    # Multi-regulation Configuration
+    # Multi-regulation Configuration (current active scope: petroleum only)
     REGULATION_CATEGORIES: dict = {
         "petroleum": ["li_2204.pdf"],
-        "mining": [],
-        "environmental": [],
-        "labor": [],
-        "general": []
     }
+    # Future expansion placeholders (uncomment when adding regulations):
+    # "mining": []
+    # "environmental": []
+    # "labor": []
+    # "general": []
     
     # Regulation Processing
     CHUNK_SIZE: int = int(os.getenv("REGULATION_CHUNK_SIZE", "1000"))
@@ -79,6 +90,19 @@ class Settings:
     CORS_ORIGINS: list = os.getenv("CORS_ORIGINS", "*").split(",")
     RATE_LIMIT_REQUESTS: int = int(os.getenv("RATE_LIMIT_REQUESTS", "100"))
     RATE_LIMIT_WINDOW: int = int(os.getenv("RATE_LIMIT_WINDOW", "3600"))  # seconds
+    REQUIRE_API_KEY: bool = os.getenv("REQUIRE_API_KEY", "False").lower() == "true"
+    API_KEY: Optional[str] = os.getenv("API_KEY")  # simple shared secret mode
+
+    # WebSocket / Realtime
+    ENABLE_WEBSOCKETS: bool = os.getenv("ENABLE_WEBSOCKETS", "True").lower() == "true"
+    MAX_WS_CONNECTIONS: int = int(os.getenv("MAX_WS_CONNECTIONS", "100"))
+    WS_HEARTBEAT_SECONDS: int = int(os.getenv("WS_HEARTBEAT_SECONDS", "30"))
+
+    # Rate limiting / circuit breaker (in-memory for now)
+    OPENAI_MAX_TOKENS_PER_MINUTE: int = int(os.getenv("OPENAI_MAX_TOKENS_PER_MINUTE", "60000"))
+    OPENAI_MAX_REQUESTS_PER_MINUTE: int = int(os.getenv("OPENAI_MAX_REQUESTS_PER_MINUTE", "60"))
+    CIRCUIT_BREAKER_FAIL_THRESHOLD: int = int(os.getenv("CIRCUIT_BREAKER_FAIL_THRESHOLD", "5"))
+    CIRCUIT_BREAKER_RESET_SECONDS: int = int(os.getenv("CIRCUIT_BREAKER_RESET_SECONDS", "120"))
     
     # Database Configuration (for future use)
     DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL")
