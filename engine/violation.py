@@ -7,6 +7,36 @@ from llama_index.core.base.llms.types import CompletionResponse
 # Configure logging for this module
 logger = logging.getLogger(__name__)
 
+# --- Prompt scrubbing (PII/sensitive data minimization) ---
+_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+_PHONE_RE = re.compile(r"\b(?:\+?\d{1,3}[\s-]?)?(?:\(?\d{3}\)?[\s-]?)?\d{3}[\s-]?\d{4}\b")
+_ACCOUNT_RE = re.compile(r"\b(?:ACCT|ACCOUNT|IBAN|SWIFT|BANK)[:\s]*[A-Z0-9\-]{6,}\b", re.IGNORECASE)
+_ID_RE = re.compile(r"\b(?:TIN|SSN|NIN|ID|PASSPORT)[:\s]*[A-Z0-9\-]{4,}\b", re.IGNORECASE)
+_CURRENCY_RE = re.compile(r"\b(?:USD|GHS|GH¢|US\$|\$|€|£)\s?\d{2,}(?:[,\.]\d{3})*(?:\.\d+)?\b")
+
+def scrub_for_prompt(text: str, level: str = "medium") -> str:
+    """Scrub PII/sensitive tokens before sending to LLM.
+
+    level: light|medium|strict controls aggressiveness.
+    """
+    if not text:
+        return text
+    s = text
+    # Always remove emails and obvious phones
+    s = _EMAIL_RE.sub("[REDACTED_EMAIL]", s)
+    s = _PHONE_RE.sub("[REDACTED_PHONE]", s)
+    # Medium: remove account IDs and government IDs
+    s = _ACCOUNT_RE.sub("[REDACTED_ACCOUNT]", s)
+    s = _ID_RE.sub("[REDACTED_ID]", s)
+    # Monetary amounts — only in strict mode or when likely not essential
+    if level == "strict":
+        s = _CURRENCY_RE.sub("[REDACTED_AMOUNT]", s)
+    # Trim length to a safe upper bound to avoid over-sharing
+    MAX_LEN = 2000
+    if len(s) > MAX_LEN:
+        s = s[:MAX_LEN] + "..."
+    return s
+
 def create_violation_prompt(contract_node_content: str, reg_node_content: str, reg_metadata: dict) -> str:
     """
     Creates a formatted prompt string for violation detection, asking for severity and reference.
@@ -28,6 +58,15 @@ def create_violation_prompt(contract_node_content: str, reg_node_content: str, r
     # Location context added based on user profile
     # Current time: Sunday, April 27, 2025 at 2:26:25 PM GMT
     # Current location: Tema, Greater Accra Region, Ghana
+    # Scrub inputs prior to prompt construction (zero-trust prompting)
+    try:
+        from config.settings import settings as app_settings  # local to avoid import cycles
+        scrub_level = getattr(app_settings, "PROMPT_SCRUB_LEVEL", "medium")
+    except Exception:
+        scrub_level = "medium"
+    contract_node_content = scrub_for_prompt(contract_node_content, scrub_level)
+    reg_node_content = scrub_for_prompt(reg_node_content, scrub_level)
+
     prompt = f"""
     You are a meticulous legal compliance analyst specializing in Ghanaian petroleum contracts under the Petroleum (Local Content and Local Participation) Regulations, 2013 (L.I. 2204), specifically focusing on operations relevant to Tema, Greater Accra Region.
 

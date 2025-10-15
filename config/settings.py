@@ -40,6 +40,9 @@ class Settings:
     SECONDARY_REASONING_DEADLINE_SECONDS: float = float(os.getenv("SECONDARY_REASONING_DEADLINE_SECONDS", "90"))
     # INCREASED REQUEST TIMEOUT to 60 seconds (was 12)
     SECONDARY_REASONING_REQUEST_TIMEOUT: float = float(os.getenv("SECONDARY_REASONING_REQUEST_TIMEOUT", "60"))
+    # Secondary refinement adaptive controls
+    SECONDARY_COMPLEXITY_THRESHOLD: int = int(os.getenv("SECONDARY_COMPLEXITY_THRESHOLD", "40"))
+    SECONDARY_REASONING_MODEL_FAST: str = os.getenv("SECONDARY_REASONING_MODEL_FAST", "gpt-4o")
     
     # File paths
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
@@ -103,6 +106,21 @@ class Settings:
     OPENAI_MAX_REQUESTS_PER_MINUTE: int = int(os.getenv("OPENAI_MAX_REQUESTS_PER_MINUTE", "60"))
     CIRCUIT_BREAKER_FAIL_THRESHOLD: int = int(os.getenv("CIRCUIT_BREAKER_FAIL_THRESHOLD", "5"))
     CIRCUIT_BREAKER_RESET_SECONDS: int = int(os.getenv("CIRCUIT_BREAKER_RESET_SECONDS", "120"))
+    # Secondary refinement breaker tuning
+    SECONDARY_BREAKER_FAIL_THRESHOLD: int = int(os.getenv("SECONDARY_BREAKER_FAIL_THRESHOLD", "2"))
+    SECONDARY_BREAKER_RESET_SECONDS: int = int(os.getenv("SECONDARY_BREAKER_RESET_SECONDS", "300"))
+
+    # Deduplication / Grouping Controls
+    GROUPING_ENABLED: bool = os.getenv("GROUPING_ENABLED", "True").lower() == "true"
+    DEDUPE_SIM_THRESHOLD: float = float(os.getenv("DEDUPE_SIM_THRESHOLD", "0.90"))
+    USE_EMBEDDING_SIMILARITY: bool = os.getenv("USE_EMBEDDING_SIMILARITY", "False").lower() == "true"
+    MAX_PRUNE_RATIO: float = float(os.getenv("MAX_PRUNE_RATIO", "0.60"))  # max allowed reduction within a cluster
+    MIN_ITEMS_AFTER_DEDUPE: int = int(os.getenv("MIN_ITEMS_AFTER_DEDUPE", "1"))
+
+    # Reporting Enhancements (Phase 1)
+    REPORT_ENHANCED_MODE: bool = os.getenv("REPORT_ENHANCED_MODE", "True").lower() == "true"
+    INCLUDE_EXEC_SUMMARY: bool = os.getenv("INCLUDE_EXEC_SUMMARY", "True").lower() == "true"
+    INCLUDE_MRIA: bool = os.getenv("INCLUDE_MRIA", "True").lower() == "true"
     
     # Database Configuration (for future use)
     DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL")

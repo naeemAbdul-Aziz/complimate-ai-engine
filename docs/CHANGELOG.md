@@ -219,6 +219,46 @@ Focused on stabilizing runtime behavior under external service rate limits and i
 
 ---
 
+## [2.0.3] - 2025-10-15
+
+### ✨ Behavior, Quality & Reporting Updates
+
+This release focuses on reliability, cost/perf via caching, safer prompting, and consistent reporting.
+
+#### Secondary Refinement Enabled (Conservative, Bounded)
+- Switched secondary reasoning to the official OpenAI client with strict timeouts and zero automatic retries.
+- Added per-chunk deadline and dynamic per-attempt timeout budgeting; chunk size tuned.
+- Introduced a circuit breaker (cooldown on repeated failures) to skip refinement temporarily when the upstream is unhealthy.
+- Tolerant JSON extraction from LLM output and skip-bad-chunk semantics (fail-open preserves extraction results).
+
+#### Caching Layers
+- Retrieval caching: caches clause → regulation candidates to avoid repeated BM25/vector lookups.
+- Primary prompt caching (CLI): caches parsed violations per prompt+regNode; skips LLM on cache hit; merges cached payloads post-batch.
+- Refinement per-chunk cache: avoids re-running dedupe/rationalization on identical chunks.
+
+#### Prompt Scrubbing
+- Added PII minimization before LLM calls (emails, phones, ID/account-like tokens). Optional stricter monetary scrubbing.
+- Enforced max prompt length cap to reduce over-sharing.
+
+#### Report Generator Fixes
+- Normalized violation schema across pipeline stages: maps `issue → description`, fills missing `type` with `"Potential Compliance Issue"`, and resolves missing `regulation_ref`/snippets when present under alternate keys.
+- Fixed indentation/try-block errors that could produce blank TXT/PDF.
+- PDF unicode sanitizer retained to avoid latin-1 encoding errors.
+
+#### Behavior Change Notes
+- With refinement enabled, extraction candidates may be deduplicated/merged; reports can show fewer, stronger issues. If a refined chunk prunes excessively, fail-open logic preserves original extraction.
+- TXT/PDF now render even when refined items omit `category`/`regulation_ref` (defaults applied). A future update will preserve these fields during consolidation.
+
+#### Ops & Env Knobs
+- See `docs/PERFORMANCE.md` for all tuning: timeouts, breaker thresholds, cache TTL, and refinement adaptivity.
+
+---
+### [2.0.3+] - Reporting Phase 1 Enhancements
+
+- Removed group-level "Regulation:" headers from grouped reports; a single per-item "Regulation Ref" is rendered directly under each Issue.
+- Added Executive Summary and MRIA sections (TXT/PDF) controlled by flags: REPORT_ENHANCED_MODE, INCLUDE_EXEC_SUMMARY, INCLUDE_MRIA.
+- Documented conservative deduplication (category + regulation_ref + normalized issue), with guardrails against over-pruning.
+
 ## [1.0.0] - 2024-XX-XX
 
 ### Initial Release

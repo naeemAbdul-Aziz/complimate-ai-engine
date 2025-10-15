@@ -175,6 +175,21 @@ docker run --rm -p 8000:8000 \
 | REQUIRE_API_KEY | Enforce API key on protected endpoints | False |
 | API_KEY | Shared secret when REQUIRE_API_KEY=True | (none) |
 | MAX_WS_CONNECTIONS | Cap concurrent WebSocket connections | 100 |
+| OPENAI_REQUEST_TIMEOUT | Primary LLM request timeout (seconds) | 180.0 |
+| OPENAI_MAX_RETRIES | Primary LLM retry attempts | 3 |
+| SECONDARY_REASONING_REQUEST_TIMEOUT | Per-call timeout for refinement (seconds) | 60 |
+| SECONDARY_REASONING_DEADLINE_SECONDS | Hard deadline per refinement chunk (seconds) | 90 |
+| SECONDARY_REASONING_MAX_RETRIES | Attempts per refinement chunk | 1 |
+| SECONDARY_COMPLEXITY_THRESHOLD | Switch to fast model when complex | 40 |
+| SECONDARY_REASONING_MODEL_FAST | Fast refinement model | gpt-4o |
+| SECONDARY_BREAKER_FAIL_THRESHOLD | Refinement breaker fail threshold | 2 |
+| SECONDARY_BREAKER_RESET_SECONDS | Refinement breaker cooldown (seconds) | 300 |
+| REDIS_URL | Redis backing for cache (optional) | (none) |
+| CACHE_TTL_SECONDS | JSON cache TTL (seconds) | 3600 |
+| HYBRID_SEARCH_TOP_K | Hybrid retrieval top-k | 5 |
+| REPORT_ENHANCED_MODE | Enable enhanced report layout (Phase 1) | True |
+| INCLUDE_EXEC_SUMMARY | Include Executive Summary section | True |
+| INCLUDE_MRIA | Include Matters Requiring Immediate Attention | True |
 
 ### Health Check
 ```bash
@@ -238,9 +253,17 @@ For more about **CompliMate**, see our landing page - complighana.com
   - Adds: `severity` (Low|Medium|High|Critical), `confidence` (0–1), `rationale` sentence.
   - Removes low-evidence / unsupported candidates.
 
+Refinement applies conservative deduplication:
+- Only merges items that share the same Category and the same Regulation Ref, and that describe essentially the same Issue (normalized match; optional similarity threshold via USE_EMBEDDING_SIMILARITY/DEDUPE_SIM_THRESHOLD).
+- Distinct obligations under the same category but different regulation references remain separate.
+- Guardrails prevent over-pruning within a category+regulation cluster.
+
 Refinement stats are embedded in each report under the `refinement` block.
 
 If the secondary pass fails (timeout / API error) the original extraction set is preserved (fail‑open for safety).
+
+Report rendering:
+- Grouped view shows Category headings and a single per-item “Regulation Ref” line directly beneath the Issue. We intentionally removed the group-level “Regulation:” header to avoid duplication.
 
 ### Choosing Models for Maximum Reasoning Fidelity
 
@@ -265,5 +288,18 @@ python scripts/rebuild_regulations.py  # (future utility) or trigger rebuild end
 ### Observability
 - Report includes `models` block enumerating active model IDs and whether secondary was enabled.
 - Future: expose via `/health` or `/meta` endpoint.
+
+---
+
+## Performance and Security Notes
+
+- Prompt scrubbing removes emails, phone numbers, and account/ID-like tokens before sending prompts to LLMs, reducing PII exposure.
+- Multi-layer caching:
+  - Retrieval caching for clause→regulation lookups
+  - Primary prompt caching to skip repeated LLM calls
+  - Refinement per-chunk caching to avoid redundant second-pass calls
+- Refinement is time-bounded with a circuit breaker; failures fail-open so extraction results are preserved.
+
+See `docs/PERFORMANCE.md` for all knobs and guidance.
 
 ---
