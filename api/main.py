@@ -59,8 +59,19 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["X-Frame-Options"] = "DENY"
-    # Basic CSP placeholder - refine later
-    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    
+    # --- UPDATED CSP ---
+    # This is the fix for the blank white screen in Swagger UI.
+    # It allows loading scripts/styles from the required CDNs.
+    csp_policy = (
+        "default-src 'self'; "
+        "script-src 'self' cdn.jsdelivr.net 'unsafe-inline'; "
+        "style-src 'self' cdn.jsdelivr.net 'unsafe-inline'; "
+        "img-src 'self' fastapi.tiangolo.com data:; "
+        "connect-src 'self' ws: wss:;"  # Allow 'self' and WebSockets
+    )
+    response.headers["Content-Security-Policy"] = csp_policy
+    
     return response
 
 # Include routers

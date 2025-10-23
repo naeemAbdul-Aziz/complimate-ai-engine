@@ -19,7 +19,8 @@ class Settings:
     """Application settings and configuration."""
     
     # API Configuration
-    API_HOST: str = os.getenv("API_HOST", "0.0.0.0")
+    # CHANGED: Default host is now 127.0.0.1 for a clickable link in local dev
+    API_HOST: str = os.getenv("API_HOST", "127.0.0.1")
     API_PORT: int = int(os.getenv("API_PORT", "8000"))
     API_RELOAD: bool = os.getenv("API_RELOAD", "True").lower() == "true"
     API_LOG_LEVEL: str = os.getenv("API_LOG_LEVEL", "info")
@@ -157,7 +158,7 @@ class ProductionSettings(Settings):
     """Production-specific settings."""
     API_RELOAD = False
     LOG_LEVEL = "INFO"
-    API_HOST = "0.0.0.0"
+    API_HOST = "0.0.0.0" # Production should always bind to 0.0.0.0
 
 class TestingSettings(Settings):
     """Testing-specific settings."""
