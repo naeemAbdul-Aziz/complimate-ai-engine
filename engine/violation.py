@@ -109,7 +109,16 @@ def create_violation_prompt(contract_node_content: str, reg_node_content: str, r
     Severity: High
     --- ISSUE END ---
 
-    **Important:** If the contract clause fully complies with *this specific Regulation Excerpt* and has no ambiguities in relation to it, respond ONLY with the exact phrase: "No issues found." Do not add any explanation if no issues are found.
+    **Important:**
+    1.  You **MUST** respond using the "--- ISSUE START ---" / "--- ISSUE END ---" format.
+    2.  If the clause **FULLY COMPLIES** with this specific excerpt, you **MUST** provide one block as follows:
+    
+    --- ISSUE START ---
+    Issue: The clause is fully compliant with this regulation excerpt.
+    Category: Compliant
+    Regulation Ref: N/A
+    Severity: N/A
+    --- ISSUE END ---
     """
     return prompt
 
@@ -126,24 +135,30 @@ def parse_llm_response(response_text: str, metadata: dict) -> list[dict]:
     """
     violations = []
     # Regex to find blocks and capture fields (case-insensitive keys, flexible whitespace)
+    # UPDATED: Allow "Compliant" in Category and expanded Severity match
     pattern = re.compile(
         r"---\s*ISSUE\s+START\s*---\s*"
         r"Issue:\s*(.*?)\s*"
         r"Category:\s*(.*?)\s*"
         r"Regulation\s+Ref:\s*(.*?)\s*"
-        r"Severity:\s*(High|Medium|Low|N/A)\s*" # Expect specific values or N/A
+        r"Severity:\s*(High|Medium|Low|N/A)\s*" # Allow N/A
         r"---\s*ISSUE\s+END\s*---",
         re.IGNORECASE | re.DOTALL # Ignore case for keys, DOTALL for multiline content
     )
 
-    if "No issues found." in response_text:
+    # Handle the old "No issues found" just in case the model reverts
+    if "No issues found." in response_text and not pattern.search(response_text):
         return []
 
     for match in pattern.finditer(response_text):
         description = match.group(1).strip()
         category = match.group(2).strip()
         reg_ref = match.group(3).strip()
-        severity = match.group(4).strip().capitalize() # Capitalize High/Medium/Low
+        severity = match.group(4).strip().capitalize() # Capitalize High/Medium/Low/N/A
+
+        # ADDED: Skip "Compliant" blocks
+        if category.lower() == "compliant":
+            continue
 
         violations.append({
             "description": description,
@@ -152,13 +167,13 @@ def parse_llm_response(response_text: str, metadata: dict) -> list[dict]:
             "severity": severity if severity in ["High", "Medium", "Low"] else "Medium", # Default if invalid
             "type": "Potential Compliance Issue", # More professional type
             "contract_node_id": metadata.get("contract_node_id"),
-            "regulation_node_id": metadata.get("reg_node_id"),
+            "regulation_node_id": metadata.get("regulation_node_id"),
             "contract_snippet": metadata.get("contract_clause_snippet"),
             "regulation_snippet": metadata.get("regulation_excerpt_snippet"),
         })
 
-    # Fallback if parsing fails but response is not "No issues found."
-    if not violations and "No issues found." not in response_text:
+    # Fallback if parsing fails and no "Compliant" block was found
+    if not violations and "Compliant" not in response_text and "No issues found." not in response_text:
          logger.warning(f"Could not parse potential violation details from LLM response for contract node {metadata.get('contract_node_id')}, reg node {metadata.get('reg_node_id')}. Storing raw response.")
          violations.append({
             "description": response_text, # Store raw response
@@ -212,9 +227,9 @@ def process_batch_violation_responses(
             parsed_violations = parse_llm_response(response_text, metadata)
             if parsed_violations:
                 all_violations.extend(parsed_violations)
-            elif "No issues found." not in response_text :
-                 # Log if parsing failed but it wasn't a 'No issues found' response (already handled in parse_llm_response)
-                 logger.warning(f"Non-empty response received but no structured issues parsed and not 'No issues found' for C:{metadata.get('contract_node_id', 'N/A')[:8]}/R:{metadata.get('reg_node_id', 'N/A')[:8]}.")
+            elif "No issues found." not in response_text and "Compliant" not in response_text:
+                 # Log if parsing failed but it wasn't a 'No issues' or 'Compliant' response
+                 logger.warning(f"Non-empty response received but no structured issues parsed and not 'No issues found' or 'Compliant' for C:{metadata.get('contract_node_id', 'N/A')[:8]}/R:{metadata.get('reg_node_id', 'N/A')[:8]}.")
         else:
             logger.warning(f"Received empty response from LLM for C:{metadata.get('contract_node_id', 'N/A')[:8]}/R:{metadata.get('reg_node_id', 'N/A')[:8]}.")
 

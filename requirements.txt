@@ -14,7 +14,7 @@
 ############## Runtime Core ##############
 fastapi[standard]==0.116.1        # Modern API framework (aligned with Starlette 0.41.x)
 uvicorn==0.35.0                   # ASGI server (matches FastAPI compatibility matrix)
-openai==1.75.0                    # OpenAI official client (aligns with model usage)
+openai>=1.108.1,<2                   # OpenAI official client (aligns with model usage)
 httpx==0.28.1                     # HTTP client (transitive but pinned for stability)
 python-dotenv==1.1.1              # Environment variable loading
 colorlog==6.8.2                   # Colored console logging
@@ -29,8 +29,8 @@ chromadb==0.5.21                  # Persistent vector storage (removed old 0.4.x
 ############## LlamaIndex Modular Stack ##############
 # Replaced monolithic `llama-index` with only required subpackages
 llama-index-core==0.14.3
-llama-index-llms-openai==0.3.29
-llama-index-embeddings-openai==0.3.1
+llama-index-llms-openai==0.6.0
+llama-index-embeddings-openai==0.5.1
 llama-index-retrievers-bm25==0.6.5
 llama-index-vector-stores-chroma==0.5.3
 

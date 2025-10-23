@@ -1,21 +1,18 @@
 import os
 import logging
 from llama_index.core import SimpleDirectoryReader
-from llama_index.core.node_parser import SimpleFileNodeParser
+from llama_index.core.node_parser import SimpleNodeParser  # CHANGED
+from config.settings import settings as app_settings  # ADDED
 
 # ─── Logger Setup ─────────────────────────────────────────────────────────────
-def setup_logger(name=__name__, level=logging.INFO):
-    fmt = "%(asctime)s | %(levelname)-5s | %(name)s | %(message)s"
-    logging.basicConfig(format=fmt, level=level)
-    return logging.getLogger(name)
-
-logger = setup_logger()
+# Use standard logging setup, as main.py configures the root logger
+logger = logging.getLogger(__name__)
 
 # ─── Parsing & Metadata ────────────────────────────────────────────────────────
 
 def parse_contract(file_path: str):
     """
-    Parses a contract PDF into nodes using default LlamaIndex metadata.
+    Parses a contract PDF into nodes using SimpleNodeParser for chunking.
     """
     if not os.path.exists(file_path):
         logger.error("File not found: %s", file_path)
@@ -26,12 +23,18 @@ def parse_contract(file_path: str):
     documents = reader.load_data()
 
     if not documents:
-        logger.error("No document data found.")
-        raise ValueError("No document data found.")
+        logger.error("No document data found in %s.", file_path)
+        # Return empty list to be handled by the caller
+        return []
 
     logger.info("Contract document loaded successfully.")
     
-    parser = SimpleFileNodeParser()
+    # CHANGED: Use SimpleNodeParser with settings from config
+    parser = SimpleNodeParser.from_defaults(
+        chunk_size=app_settings.CHUNK_SIZE,
+        chunk_overlap=app_settings.CHUNK_OVERLAP
+    )
+    
     nodes = parser.get_nodes_from_documents(documents)
 
     logger.info("Contract parsed into %d nodes.", len(nodes))
@@ -61,3 +64,4 @@ def extract_metadata(nodes):
         logger.info("Aggregated metadata: %s", meta)
     except Exception as e:
         logger.exception("An error occurred while parsing the contract")
+        
