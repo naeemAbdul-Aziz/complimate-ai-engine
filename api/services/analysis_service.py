@@ -11,14 +11,16 @@ import asyncio
 import uuid
 import datetime
 import os
-import time # --- ADDED: For manual performance logging ---
+import time # For manual performance logging
 from typing import List, Dict, Any, Optional, Tuple, Union
 from pathlib import Path
 
 # --- SQLModel/SQLAlchemy Imports ---
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
-from sqlalchemy import desc # --- ADDED: For ordering ---
+# --- REMOVED `desc` import as it's not used in the final version ---
+# from sqlalchemy import desc
+# --- END REMOVED ---
 # --- End DB Imports ---
 
 # --- LlamaIndex Imports ---
@@ -112,16 +114,14 @@ class AnalysisService:
             self.logger.exception(f"CRITICAL: Failed during model/index initialization: {e}")
             raise
 
-    # --- MODIFIED: Removed @log_performance decorator ---
+    # --- start_analysis ---
     async def start_analysis(self, session: AsyncSession, file_path: str, contract_name: str) -> str:
         """
         Start a new contract analysis by creating a record in the database.
         """
-        # --- ADDED: Manual performance logging setup ---
         op_start_time = time.monotonic()
         success = False
-        analysis_id_str = "N/A" # Default in case of early failure
-        # --- END ADDED ---
+        analysis_id_str = "N/A"
 
         self.logger.info(f"Starting analysis process for contract: {contract_name} ({file_path})")
         try:
@@ -141,22 +141,22 @@ class AnalysisService:
             asyncio.create_task(self._run_analysis(analysis_id_str))
             self.logger.info(f"Background task scheduled for analysis {analysis_id_str}")
 
-            success = True # Mark as success if we reached here
+            success = True
             return analysis_id_str
         except Exception as e:
             self.logger.exception(f"Failed to create analysis record or schedule task for {contract_name}: {e}")
             raise RuntimeError(f"Could not start analysis: {e}")
         finally:
-            # --- ADDED: Manual performance logging call ---
             op_duration = time.monotonic() - op_start_time
             log_performance(
-                operation="start_analysis", # Use the function name
+                operation="start_analysis",
                 duration=op_duration,
                 success=success,
                 extra_data={"contract_name": contract_name, "analysis_id": analysis_id_str}
             )
-            # --- END ADDED ---
 
+
+    # --- _execute_prompt_with_semaphore ---
     async def _execute_prompt_with_semaphore(
         self,
         prompt: str,
@@ -193,6 +193,8 @@ class AnalysisService:
 
                 raise e
 
+
+    # --- _run_analysis (Background Task) ---
     async def _run_analysis(self, analysis_id_str: str) -> None:
         """
         Run the actual analysis in the background using a dedicated DB session.
@@ -217,6 +219,7 @@ class AnalysisService:
                     self.logger.error(f"Analysis {analysis_id} not found in DB for background run.")
                     return
 
+                # --- Start Analysis Steps ---
                 self.logger.debug(f"[{analysis_id}] Setting status to RUNNING")
                 analysis.status = AnalysisStatus.RUNNING
                 analysis.progress = "Parsing contract document..."
@@ -225,6 +228,7 @@ class AnalysisService:
                     "stage": "parse", "detail": analysis.progress
                 })
 
+                # --- Parse Contract ---
                 self.logger.debug(f"[{analysis_id}] Parsing contract file: {analysis.file_path}")
                 contract_nodes = parse_contract(analysis.file_path)
                 if not contract_nodes:
@@ -236,6 +240,7 @@ class AnalysisService:
                     "stage": "chunk", "detail": "Extracted contract sections", "current": len(contract_nodes)
                 })
 
+                # --- Generate Prompts ---
                 self.logger.debug(f"[{analysis_id}] Generating prompts for {len(contract_nodes)} nodes.")
                 analysis.progress = f"Generating analysis prompts for {len(contract_nodes)} sections..."
                 await session.commit()
@@ -294,6 +299,7 @@ class AnalysisService:
                     })
                     return
 
+                # --- Execute LLM Calls ---
                 self.logger.info(f"[{analysis_id}] Submitting {len(tasks)} LLM tasks.")
                 analysis.progress = f"Processing {len(tasks)} compliance checks with AI..."
                 await session.commit()
@@ -304,6 +310,7 @@ class AnalysisService:
                 batch_responses = await asyncio.gather(*tasks, return_exceptions=True)
                 self.logger.info(f"[{analysis_id}] Received {len(batch_responses)} LLM responses/exceptions.")
 
+                # --- Process Responses ---
                 typed_batch_responses: List[Union[CompletionResponse, Exception]] = []
                 breaker_failures = 0
                 other_failures = 0
@@ -334,6 +341,7 @@ class AnalysisService:
                     "stage": "violations", "detail": "Aggregated potential violations", "current": len(all_violations)
                 })
 
+                # --- Generate Reports ---
                 self.logger.debug(f"[{analysis_id}] Generating reports...")
                 analysis.progress = "Generating compliance reports..."
                 await session.commit()
@@ -349,9 +357,11 @@ class AnalysisService:
                     typed_batch_responses
                 )
 
+                # --- Save Reports (Now Async) ---
                 report_paths = await self._generate_reports(analysis_id_str, report_data)
                 self.logger.info(f"[{analysis_id}] Reports generated: {list(report_paths.keys())}")
 
+                # --- Final Update ---
                 analysis.status = AnalysisStatus.COMPLETED
                 analysis.completed_at = datetime.datetime.now()
                 analysis.progress = "Analysis completed successfully"
@@ -365,6 +375,7 @@ class AnalysisService:
                     "duration_seconds": (analysis.completed_at - analysis.started_at).total_seconds()
                 })
 
+            # --- Main Exception Handling for the Background Task ---
             except Exception as e:
                 self.logger.exception(f"Analysis task {analysis_id} failed critically: {e}")
                 if analysis:
@@ -541,20 +552,31 @@ class AnalysisService:
             self.logger.exception(f"Database error getting results for {analysis_id}: {e}")
             raise
 
-    # --- MODIFIED: Corrected order_by syntax ---
+    # --- list_analyses ---
+    # --- CORRECTED: Use Python sorting instead of DB ordering ---
     async def list_analyses(self, session: AsyncSession, limit: int = 100) -> List[Analysis]:
-        """Get list of recent analyses from the DB."""
+        """Get list of recent analyses from the DB, sorted descending by start time."""
         self.logger.debug(f"Querying list of recent analyses (limit: {limit})")
         try:
-            statement = select(Analysis).order_by(Analysis.started_at.desc()).limit(limit)
+            # Select without ordering in the database, apply limit
+            statement = select(Analysis).limit(limit)
             results = await session.exec(statement)
-            analyses = list(results.all())
-            self.logger.info(f"Retrieved {len(analyses)} analysis records from DB.")
-            return analyses
+            analyses = results.all() # Fetch all results up to the limit
+
+            # Sort the results in Python after fetching
+            # Use getattr for safety, default to minimum datetime if started_at is missing (unlikely)
+            analyses_sorted = sorted(
+                analyses,
+                key=lambda analysis: getattr(analysis, 'started_at', datetime.datetime.min),
+                reverse=True # Descending order (newest first)
+            )
+
+            self.logger.info(f"Retrieved and sorted {len(analyses_sorted)} analysis records from DB.")
+            return list(analyses_sorted) # Ensure return type is List
         except Exception as e:
             self.logger.exception(f"Database error listing analyses: {e}")
             raise
-    # --- END MODIFIED ---
+    # --- END CORRECTION ---
 
     @property
     def is_ready(self) -> bool:
