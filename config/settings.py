@@ -103,6 +103,9 @@ class Settings:
     WS_HEARTBEAT_SECONDS: int = int(os.getenv("WS_HEARTBEAT_SECONDS", "30"))
 
     # Rate limiting / circuit breaker (in-memory for now)
+    # --- ADDED ---
+    OPENAI_CONCURRENCY_LIMIT: int = int(os.getenv("OPENAI_CONCURRENCY_LIMIT", "10"))
+    # --- END ADDED ---
     OPENAI_MAX_TOKENS_PER_MINUTE: int = int(os.getenv("OPENAI_MAX_TOKENS_PER_MINUTE", "60000"))
     OPENAI_MAX_REQUESTS_PER_MINUTE: int = int(os.getenv("OPENAI_MAX_REQUESTS_PER_MINUTE", "60"))
     CIRCUIT_BREAKER_FAIL_THRESHOLD: int = int(os.getenv("CIRCUIT_BREAKER_FAIL_THRESHOLD", "5"))

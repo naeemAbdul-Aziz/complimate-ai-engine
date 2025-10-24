@@ -27,6 +27,9 @@ from reporting.report_generator import generate_report, generate_text_report, ge
 from config import settings
 from config.logger import get_component_logger, log_performance
 from utils import LoggerMixin, log_performance
+# --- ADDED ---
+from utils.circuit_breaker import SimpleCircuitBreaker
+# --- END ADDED ---
 from api.models.schemas import AnalysisStatus, ViolationModel
 from config import settings
 
@@ -48,6 +51,13 @@ class AnalysisService(LoggerMixin):
         self.regulation_manager = RegulationManager()
         self.active_analyses: Dict[str, Dict[str, Any]] = {}
         self._initialize_models()
+        # --- ADDED ---
+        # Initialize Circuit Breaker using settings
+        self.openai_breaker = SimpleCircuitBreaker(
+            fail_threshold=settings.CIRCUIT_BREAKER_FAIL_THRESHOLD,
+            reset_seconds=settings.CIRCUIT_BREAKER_RESET_SECONDS
+        )
+        # --- END ADDED ---
     
     @property
     def logger(self):
@@ -119,6 +129,45 @@ class AnalysisService(LoggerMixin):
         self.logger.info(f"Started analysis {analysis_id} for contract {contract_name}")
         return analysis_id
     
+    # --- MODIFIED: ADDED CIRCUIT BREAKER LOGIC ---
+    async def _execute_prompt_with_semaphore(
+        self, 
+        prompt: str, 
+        semaphore: asyncio.Semaphore
+    ) -> CompletionResponse:
+        """Executes a single LLM prompt call, respecting semaphore and circuit breaker."""
+        async with semaphore:
+            # Check circuit breaker BEFORE making the call
+            if self.openai_breaker.is_open():
+                self.logger.warning("OpenAI circuit breaker is open. Skipping request.")
+                raise Exception("OpenAI circuit breaker is open")
+
+            try:
+                # The semaphore ensures no more than N tasks run this block at once
+                response = await Settings.llm.acomplete(prompt)
+                # Record success if the call completes
+                self.openai_breaker.record_success()
+                return response
+            except Exception as e:
+                # Check for rate limit (429) or server errors (5xx)
+                # Note: Specific exception types depend on the 'openai' library version
+                # We'll check for common indicators in the error string or type name
+                error_str = str(e).lower()
+                error_type = type(e).__name__
+                
+                if "429" in error_str or "ratelimiterror" in error_type.lower():
+                    self.logger.warning(f"OpenAI Rate Limit encountered: {e}")
+                    self.openai_breaker.record_failure()
+                elif "500" in error_str or "internalservererror" in error_type.lower() or \
+                     "502" in error_str or "badgateway" in error_type.lower() or \
+                     "503" in error_str or "serviceunavailable" in error_type.lower():
+                    self.logger.error(f"OpenAI Server Error encountered: {e}")
+                    self.openai_breaker.record_failure()
+                
+                # Re-raise the exception so asyncio.gather captures it
+                raise e
+    # --- END MODIFIED ---
+
     async def _run_analysis(self, analysis_id: str) -> None:
         """
         Run the actual analysis in the background.
@@ -157,6 +206,14 @@ class AnalysisService(LoggerMixin):
             
             tasks = []
             prompt_metadata_list = []
+
+            # --- MODIFIED ---
+            # Define a semaphore to limit concurrent requests to OpenAI
+            # Read limit from settings
+            concurrency_limit = settings.OPENAI_CONCURRENCY_LIMIT
+            semaphore = asyncio.Semaphore(concurrency_limit)
+            self.logger.info(f"Using semaphore to limit LLM concurrency to {concurrency_limit} tasks.")
+            # --- END MODIFIED ---
             
             for node in contract_nodes:
                 contract_content = node.get_content()
@@ -185,7 +242,12 @@ class AnalysisService(LoggerMixin):
                     prompt = create_violation_prompt(contract_content, reg_content, reg_metadata)
                     
                     # Create async task
-                    tasks.append(Settings.llm.acomplete(prompt))
+                    # --- MODIFIED ---
+                    # Original: tasks.append(Settings.llm.acomplete(prompt))
+                    # Fixed: Wrap the task in our semaphore helper
+                    tasks.append(self._execute_prompt_with_semaphore(prompt, semaphore))
+                    # --- END MODIFIED ---
+
                     prompt_metadata_list.append({
                         "contract_node_id": node.node_id,
                         "regulation_node_id": reg_node.node_id,
@@ -211,14 +273,32 @@ class AnalysisService(LoggerMixin):
                 "total": len(tasks)
             })
             
+            # This will now respect the semaphore, running only N tasks at a time
             batch_responses = await asyncio.gather(*tasks, return_exceptions=True)
             
-            # Process responses
-            typed_batch_responses = [
-                resp if isinstance(resp, (CompletionResponse, Exception)) 
-                else Exception(f"Unknown response type: {type(resp)}")
-                for resp in batch_responses
-            ]
+            # --- MODIFIED: Process responses with circuit breaker awareness ---
+            typed_batch_responses = []
+            breaker_failures = 0
+            other_failures = 0
+            
+            for resp in batch_responses:
+                if isinstance(resp, Exception):
+                    if "OpenAI circuit breaker is open" in str(resp):
+                        breaker_failures += 1
+                    else:
+                        other_failures += 1
+                    typed_batch_responses.append(resp) # Keep exceptions for processing
+                elif isinstance(resp, CompletionResponse):
+                    typed_batch_responses.append(resp)
+                else:
+                    other_failures += 1
+                    typed_batch_responses.append(Exception(f"Unknown response type: {type(resp)}"))
+
+            if breaker_failures > 0:
+                self.logger.warning(f"{breaker_failures}/{len(tasks)} tasks skipped due to open circuit breaker.")
+            if other_failures > 0:
+                self.logger.warning(f"{other_failures}/{len(tasks)} tasks failed with other errors.")
+            # --- END MODIFIED ---
             
             all_violations = process_batch_violation_responses(typed_batch_responses, prompt_metadata_list)
             await self._broadcast_ws(analysis_id, "progress", {
@@ -239,7 +319,7 @@ class AnalysisService(LoggerMixin):
                 analysis["file_path"],
                 all_violations,
                 len(tasks),
-                typed_batch_responses
+                typed_batch_responses # Pass the list containing exceptions
             )
             
             # Save reports
@@ -261,13 +341,24 @@ class AnalysisService(LoggerMixin):
         except Exception as e:
             self.logger.error(f"Analysis {analysis_id} failed: {e}")
             analysis["status"] = AnalysisStatus.ERROR
-            analysis["progress"] = "Analysis failed"
-            analysis["error"] = str(e)
             analysis["completed_at"] = datetime.datetime.now()
-            await self._broadcast_ws(analysis_id, "error", {
-                "message": str(e),
-                "retryable": True
-            })
+            
+            # --- MODIFIED: Custom error for circuit breaker failure ---
+            if "OpenAI circuit breaker is open" in str(e):
+                analysis["progress"] = "Analysis failed due to API errors"
+                analysis["error"] = "Analysis failed due to sustained OpenAI API issues (Circuit Breaker Open)."
+                await self._broadcast_ws(analysis_id, "error", {
+                    "message": analysis["error"],
+                    "retryable": False # Sustained issue
+                })
+            else:
+                analysis["progress"] = "Analysis failed"
+                analysis["error"] = str(e)
+                await self._broadcast_ws(analysis_id, "error", {
+                    "message": str(e),
+                    "retryable": True # Assume most other errors might be retryable
+                })
+            # --- END MODIFIED ---
 
     async def _broadcast_ws(self, analysis_id: str, event_type: str, payload: dict) -> None:
         """Helper to broadcast a WebSocket event if enabled and manager is available."""
@@ -292,11 +383,13 @@ class AnalysisService(LoggerMixin):
         file_path: str, 
         violations: List[dict], 
         total_prompts: int, 
-        batch_responses: List
+        batch_responses: List # Now contains CompletionResponse or Exception
     ) -> dict:
         """Create report data structure."""
-        successful_responses = sum(1 for r in batch_responses if not isinstance(r, Exception))
+        # --- MODIFIED: Count successes/failures from the mixed list ---
+        successful_responses = sum(1 for r in batch_responses if isinstance(r, CompletionResponse))
         failed_responses = sum(1 for r in batch_responses if isinstance(r, Exception))
+        # --- END MODIFIED ---
         
         return {
             "contract_name": contract_name,
