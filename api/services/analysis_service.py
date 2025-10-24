@@ -7,11 +7,16 @@ This module contains the business logic for contract compliance analysis.
 """
 
 import asyncio
-import uuid
+import uuid  # --- MODIFIED: Added uuid import ---
 import datetime
 import os
 from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
+
+# --- MODIFIED: Added SQLModel imports ---
+from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel import select
+# --- END MODIFIED ---
 
 from llama_index.core import VectorStoreIndex, Document, Settings
 from llama_index.core.base.llms.types import CompletionResponse
@@ -27,10 +32,11 @@ from reporting.report_generator import generate_report, generate_text_report, ge
 from config import settings
 from config.logger import get_component_logger, log_performance
 from utils import LoggerMixin, log_performance
-# --- ADDED ---
 from utils.circuit_breaker import SimpleCircuitBreaker
-# --- END ADDED ---
 from api.models.schemas import AnalysisStatus, ViolationModel
+# --- MODIFIED: Import the DB model ---
+from api.models.db_models import Analysis
+# --- END MODIFIED ---
 from config import settings
 
 # Optional import for WebSocket broadcasting (decoupled)
@@ -49,15 +55,15 @@ class AnalysisService(LoggerMixin):
         # Use enhanced component logger instead of LoggerMixin
         self._component_logger = get_component_logger('analysis_service')
         self.regulation_manager = RegulationManager()
-        self.active_analyses: Dict[str, Dict[str, Any]] = {}
+        # --- MODIFIED: Removed in-memory dictionary ---
+        # self.active_analyses: Dict[str, Dict[str, Any]] = {} 
+        # --- END MODIFIED ---
         self._initialize_models()
-        # --- ADDED ---
         # Initialize Circuit Breaker using settings
         self.openai_breaker = SimpleCircuitBreaker(
             fail_threshold=settings.CIRCUIT_BREAKER_FAIL_THRESHOLD,
             reset_seconds=settings.CIRCUIT_BREAKER_RESET_SECONDS
         )
-        # --- END ADDED ---
     
     @property
     def logger(self):
@@ -86,7 +92,6 @@ class AnalysisService(LoggerMixin):
             regulation_index = self.regulation_manager.get_regulation_index()
             if regulation_index is None:
                 self.logger.warning("No regulation index available. Please rebuild regulations through the API.")
-                # Don't raise an error - allow the API to start and regulations can be built later
             else:
                 self.logger.info("Regulation index loaded successfully")
             
@@ -96,40 +101,43 @@ class AnalysisService(LoggerMixin):
             self.logger.error(f"Failed to initialize models: {e}")
             raise
     
+    # --- MODIFIED: Refactored to use database session ---
     @log_performance
-    async def start_analysis(self, file_path: str, contract_name: str) -> str:
+    async def start_analysis(self, session: AsyncSession, file_path: str, contract_name: str) -> str:
         """
-        Start a new contract analysis.
+        Start a new contract analysis by creating a record in the database.
         
         Args:
-            file_path: Path to the contract file
-            contract_name: Name of the contract file
+            session: The database session.
+            file_path: Path to the contract file.
+            contract_name: Name of the contract file.
             
         Returns:
-            Analysis ID
+            Analysis ID (as a string).
         """
-        analysis_id = str(uuid.uuid4())
         
-        # Initialize analysis record
-        self.active_analyses[analysis_id] = {
-            "id": analysis_id,
-            "contract_name": contract_name,
-            "file_path": file_path,
-            "status": AnalysisStatus.STARTED,
-            "progress": "Analysis started",
-            "started_at": datetime.datetime.now(),
-            "estimated_completion": datetime.datetime.now() + datetime.timedelta(minutes=5),
-            "results": None,
-            "error": None
-        }
+        # Create a new Analysis DB record
+        new_analysis = Analysis(
+            contract_name=contract_name,
+            file_path=file_path,
+            status=AnalysisStatus.STARTED,
+            progress="Analysis started"
+        )
         
-        # Start analysis in background
-        asyncio.create_task(self._run_analysis(analysis_id))
+        # Add to session and commit
+        session.add(new_analysis)
+        await session.commit()
+        await session.refresh(new_analysis)
         
-        self.logger.info(f"Started analysis {analysis_id} for contract {contract_name}")
-        return analysis_id
+        analysis_id_str = str(new_analysis.id)
+        
+        # Start analysis in background, passing the ID
+        asyncio.create_task(self._run_analysis(analysis_id_str))
+        
+        self.logger.info(f"Started analysis {analysis_id_str} for contract {contract_name}")
+        return analysis_id_str
+    # --- END MODIFIED ---
     
-    # --- MODIFIED: ADDED CIRCUIT BREAKER LOGIC ---
     async def _execute_prompt_with_semaphore(
         self, 
         prompt: str, 
@@ -137,21 +145,15 @@ class AnalysisService(LoggerMixin):
     ) -> CompletionResponse:
         """Executes a single LLM prompt call, respecting semaphore and circuit breaker."""
         async with semaphore:
-            # Check circuit breaker BEFORE making the call
             if self.openai_breaker.is_open():
                 self.logger.warning("OpenAI circuit breaker is open. Skipping request.")
                 raise Exception("OpenAI circuit breaker is open")
 
             try:
-                # The semaphore ensures no more than N tasks run this block at once
                 response = await Settings.llm.acomplete(prompt)
-                # Record success if the call completes
                 self.openai_breaker.record_success()
                 return response
             except Exception as e:
-                # Check for rate limit (429) or server errors (5xx)
-                # Note: Specific exception types depend on the 'openai' library version
-                # We'll check for common indicators in the error string or type name
                 error_str = str(e).lower()
                 error_type = type(e).__name__
                 
@@ -164,217 +166,234 @@ class AnalysisService(LoggerMixin):
                     self.logger.error(f"OpenAI Server Error encountered: {e}")
                     self.openai_breaker.record_failure()
                 
-                # Re-raise the exception so asyncio.gather captures it
                 raise e
-    # --- END MODIFIED ---
 
-    async def _run_analysis(self, analysis_id: str) -> None:
+    # --- MODIFIED: Major refactor for background processing with DB ---
+    async def _run_analysis(self, analysis_id_str: str) -> None:
         """
         Run the actual analysis in the background.
         
-        Args:
-            analysis_id: ID of the analysis to run
-        """
-        analysis = self.active_analyses[analysis_id]
+        This function runs in a separate task and MUST create its own
+        database session.
         
-        try:
-            # Update status
-            analysis["status"] = AnalysisStatus.RUNNING
-            analysis["progress"] = "Parsing contract document..."
-            await self._broadcast_ws(analysis_id, "progress", {
-                "stage": "parse",
-                "detail": "Parsing contract document"
-            })
-            
-            # Parse contract
-            contract_nodes = parse_contract(analysis["file_path"])
-            if not contract_nodes:
-                raise ValueError("No content could be extracted from the contract")
-            await self._broadcast_ws(analysis_id, "progress", {
-                "stage": "chunk",
-                "detail": "Extracted contract sections",
-                "current": len(contract_nodes)
-            })
-            
-            # Generate prompts and tasks
-            analysis["progress"] = f"Generating analysis prompts for {len(contract_nodes)} sections..."
-            await self._broadcast_ws(analysis_id, "progress", {
-                "stage": "prompt_gen",
-                "detail": "Generating prompts",
-                "total": len(contract_nodes)
-            })
-            
-            tasks = []
-            prompt_metadata_list = []
+        Args:
+            analysis_id_str: ID of the analysis to run (as a string).
+        """
+        
+        # Import here to avoid circular dependency at module level
+        from api.db import AsyncSessionLocal
+        
+        analysis_id = uuid.UUID(analysis_id_str)
+        analysis: Optional[Analysis] = None # Define analysis in outer scope
 
-            # --- MODIFIED ---
-            # Define a semaphore to limit concurrent requests to OpenAI
-            # Read limit from settings
-            concurrency_limit = settings.OPENAI_CONCURRENCY_LIMIT
-            semaphore = asyncio.Semaphore(concurrency_limit)
-            self.logger.info(f"Using semaphore to limit LLM concurrency to {concurrency_limit} tasks.")
-            # --- END MODIFIED ---
-            
-            for node in contract_nodes:
-                contract_content = node.get_content()
-                if not contract_content or contract_content.isspace():
-                    continue
+        # Create a new session scope for this background task
+        async with AsyncSessionLocal() as session:
+            try:
+                # Get the analysis object from the DB
+                analysis = await session.get(Analysis, analysis_id)
+                if not analysis:
+                    self.logger.error(f"Analysis {analysis_id} not found in DB for background run.")
+                    return
+
+                # Update status in DB
+                analysis.status = AnalysisStatus.RUNNING
+                analysis.progress = "Parsing contract document..."
+                await session.commit() 
                 
-                # Find relevant regulations
-                relevant_regs = find_relevant_regulations(
-                    node, 
-                    self.regulation_manager.get_regulation_index(), 
-                    top_n=settings.HYBRID_SEARCH_TOP_K
-                )
+                await self._broadcast_ws(analysis_id_str, "progress", {
+                    "stage": "parse",
+                    "detail": "Parsing contract document"
+                })
                 
-                if not relevant_regs:
-                    continue
+                # Parse contract
+                contract_nodes = parse_contract(analysis.file_path)
+                if not contract_nodes:
+                    raise ValueError("No content could be extracted from the contract")
                 
-                for reg_result in relevant_regs:
-                    reg_node = reg_result.node
-                    reg_content = reg_node.get_content()
-                    reg_metadata = reg_node.metadata or {}
-                    
-                    if not reg_content or reg_content.isspace():
+                await self._broadcast_ws(analysis_id_str, "progress", {
+                    "stage": "chunk",
+                    "detail": "Extracted contract sections",
+                    "current": len(contract_nodes)
+                })
+                
+                # Generate prompts and tasks
+                analysis.progress = f"Generating analysis prompts for {len(contract_nodes)} sections..."
+                await session.commit()
+                
+                await self._broadcast_ws(analysis_id_str, "progress", {
+                    "stage": "prompt_gen",
+                    "detail": "Generating prompts",
+                    "total": len(contract_nodes)
+                })
+                
+                tasks = []
+                prompt_metadata_list = []
+
+                concurrency_limit = settings.OPENAI_CONCURRENCY_LIMIT
+                semaphore = asyncio.Semaphore(concurrency_limit)
+                self.logger.info(f"Using semaphore to limit LLM concurrency to {concurrency_limit} tasks.")
+                
+                for node in contract_nodes:
+                    contract_content = node.get_content()
+                    if not contract_content or contract_content.isspace():
                         continue
                     
-                    # Create prompt
-                    prompt = create_violation_prompt(contract_content, reg_content, reg_metadata)
+                    relevant_regs = find_relevant_regulations(
+                        node, 
+                        self.regulation_manager.get_regulation_index(), 
+                        top_n=settings.HYBRID_SEARCH_TOP_K
+                    )
                     
-                    # Create async task
-                    # --- MODIFIED ---
-                    # Original: tasks.append(Settings.llm.acomplete(prompt))
-                    # Fixed: Wrap the task in our semaphore helper
-                    tasks.append(self._execute_prompt_with_semaphore(prompt, semaphore))
-                    # --- END MODIFIED ---
+                    if not relevant_regs:
+                        continue
+                    
+                    for reg_result in relevant_regs:
+                        reg_node = reg_result.node
+                        reg_content = reg_node.get_content()
+                        reg_metadata = reg_node.metadata or {}
+                        
+                        if not reg_content or reg_content.isspace():
+                            continue
+                        
+                        prompt = create_violation_prompt(contract_content, reg_content, reg_metadata)
+                        tasks.append(self._execute_prompt_with_semaphore(prompt, semaphore))
 
-                    prompt_metadata_list.append({
-                        "contract_node_id": node.node_id,
-                        "regulation_node_id": reg_node.node_id,
-                        "contract_clause_snippet": contract_content[:300] + "...",
-                        "regulation_excerpt_snippet": reg_content[:300] + "...",
+                        prompt_metadata_list.append({
+                            "contract_node_id": node.node_id,
+                            "regulation_node_id": reg_node.node_id,
+                            "contract_clause_snippet": contract_content[:300] + "...",
+                            "regulation_excerpt_snippet": reg_content[:300] + "...",
+                        })
+                
+                if not tasks:
+                    analysis.progress = "No analysis needed - contract appears compliant"
+                    analysis.status = AnalysisStatus.COMPLETED
+                    analysis.completed_at = datetime.datetime.now()
+                    await session.commit()
+                    
+                    await self._broadcast_ws(analysis_id_str, "complete", {
+                        "violations": 0,
+                        "duration_seconds": (analysis.completed_at - analysis.started_at).total_seconds()
                     })
-            
-            if not tasks:
-                analysis["progress"] = "No analysis needed - contract appears compliant"
-                analysis["status"] = AnalysisStatus.COMPLETED
-                analysis["completed_at"] = datetime.datetime.now()
-                await self._broadcast_ws(analysis_id, "complete", {
-                    "violations": 0,
-                    "duration_seconds": (analysis["completed_at"] - analysis["started_at"]).total_seconds()
+                    return
+                
+                # Execute LLM analysis
+                analysis.progress = f"Processing {len(tasks)} compliance checks with AI..."
+                await session.commit()
+                
+                await self._broadcast_ws(analysis_id_str, "progress", {
+                    "stage": "llm",
+                    "detail": "Submitting compliance checks",
+                    "total": len(tasks)
                 })
-                return
-            
-            # Execute LLM analysis
-            analysis["progress"] = f"Processing {len(tasks)} compliance checks with AI..."
-            await self._broadcast_ws(analysis_id, "progress", {
-                "stage": "llm",
-                "detail": "Submitting compliance checks",
-                "total": len(tasks)
-            })
-            
-            # This will now respect the semaphore, running only N tasks at a time
-            batch_responses = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # --- MODIFIED: Process responses with circuit breaker awareness ---
-            typed_batch_responses = []
-            breaker_failures = 0
-            other_failures = 0
-            
-            for resp in batch_responses:
-                if isinstance(resp, Exception):
-                    if "OpenAI circuit breaker is open" in str(resp):
-                        breaker_failures += 1
+                
+                batch_responses = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                typed_batch_responses = []
+                breaker_failures = 0
+                other_failures = 0
+                
+                for resp in batch_responses:
+                    if isinstance(resp, Exception):
+                        if "OpenAI circuit breaker is open" in str(resp):
+                            breaker_failures += 1
+                        else:
+                            other_failures += 1
+                        typed_batch_responses.append(resp)
+                    elif isinstance(resp, CompletionResponse):
+                        typed_batch_responses.append(resp)
                     else:
                         other_failures += 1
-                    typed_batch_responses.append(resp) # Keep exceptions for processing
-                elif isinstance(resp, CompletionResponse):
-                    typed_batch_responses.append(resp)
-                else:
-                    other_failures += 1
-                    typed_batch_responses.append(Exception(f"Unknown response type: {type(resp)}"))
+                        typed_batch_responses.append(Exception(f"Unknown response type: {type(resp)}"))
 
-            if breaker_failures > 0:
-                self.logger.warning(f"{breaker_failures}/{len(tasks)} tasks skipped due to open circuit breaker.")
-            if other_failures > 0:
-                self.logger.warning(f"{other_failures}/{len(tasks)} tasks failed with other errors.")
-            # --- END MODIFIED ---
-            
-            all_violations = process_batch_violation_responses(typed_batch_responses, prompt_metadata_list)
-            await self._broadcast_ws(analysis_id, "progress", {
-                "stage": "violations",
-                "detail": "Aggregated potential violations",
-                "current": len(all_violations)
-            })
-            
-            # Generate reports
-            analysis["progress"] = "Generating compliance reports..."
-            await self._broadcast_ws(analysis_id, "progress", {
-                "stage": "reporting",
-                "detail": "Generating reports"
-            })
-            
-            report_data = self._create_report_data(
-                analysis["contract_name"],
-                analysis["file_path"],
-                all_violations,
-                len(tasks),
-                typed_batch_responses # Pass the list containing exceptions
-            )
-            
-            # Save reports
-            report_paths = await self._generate_reports(analysis_id, report_data)
-            
-            # Update analysis with results
-            analysis["status"] = AnalysisStatus.COMPLETED
-            analysis["completed_at"] = datetime.datetime.now()
-            analysis["progress"] = "Analysis completed successfully"
-            analysis["results"] = self._create_analysis_summary(all_violations, analysis)
-            analysis["report_paths"] = report_paths
-            await self._broadcast_ws(analysis_id, "complete", {
-                "violations": len(all_violations),
-                "duration_seconds": (analysis["completed_at"] - analysis["started_at"]).total_seconds()
-            })
-            
-            self.logger.info(f"Analysis {analysis_id} completed successfully")
-            
-        except Exception as e:
-            self.logger.error(f"Analysis {analysis_id} failed: {e}")
-            analysis["status"] = AnalysisStatus.ERROR
-            analysis["completed_at"] = datetime.datetime.now()
-            
-            # --- MODIFIED: Custom error for circuit breaker failure ---
-            if "OpenAI circuit breaker is open" in str(e):
-                analysis["progress"] = "Analysis failed due to API errors"
-                analysis["error"] = "Analysis failed due to sustained OpenAI API issues (Circuit Breaker Open)."
-                await self._broadcast_ws(analysis_id, "error", {
-                    "message": analysis["error"],
-                    "retryable": False # Sustained issue
+                if breaker_failures > 0:
+                    self.logger.warning(f"{breaker_failures}/{len(tasks)} tasks skipped due to open circuit breaker.")
+                if other_failures > 0:
+                    self.logger.warning(f"{other_failures}/{len(tasks)} tasks failed with other errors.")
+                
+                all_violations = process_batch_violation_responses(typed_batch_responses, prompt_metadata_list)
+                await self._broadcast_ws(analysis_id_str, "progress", {
+                    "stage": "violations",
+                    "detail": "Aggregated potential violations",
+                    "current": len(all_violations)
                 })
-            else:
-                analysis["progress"] = "Analysis failed"
-                analysis["error"] = str(e)
-                await self._broadcast_ws(analysis_id, "error", {
-                    "message": str(e),
-                    "retryable": True # Assume most other errors might be retryable
+                
+                # Generate reports
+                analysis.progress = "Generating compliance reports..."
+                await session.commit()
+                
+                await self._broadcast_ws(analysis_id_str, "progress", {
+                    "stage": "reporting",
+                    "detail": "Generating reports"
                 })
-            # --- END MODIFIED ---
+                
+                report_data = self._create_report_data(
+                    analysis.contract_name,
+                    analysis.file_path,
+                    all_violations,
+                    len(tasks),
+                    typed_batch_responses
+                )
+                
+                report_paths = await self._generate_reports(analysis_id_str, report_data)
+                
+                # Update analysis with final results
+                analysis.status = AnalysisStatus.COMPLETED
+                analysis.completed_at = datetime.datetime.now()
+                analysis.progress = "Analysis completed successfully"
+                analysis.results = self._create_analysis_summary(all_violations, analysis)
+                analysis.report_paths = report_paths
+                await session.commit()
+                
+                await self._broadcast_ws(analysis_id_str, "complete", {
+                    "violations": len(all_violations),
+                    "duration_seconds": (analysis.completed_at - analysis.started_at).total_seconds()
+                })
+                
+                self.logger.info(f"Analysis {analysis_id} completed successfully")
+                
+            except Exception as e:
+                self.logger.error(f"Analysis {analysis_id} failed: {e}")
+                
+                # Try to update the DB record with the error
+                if analysis: # Check if analysis object was fetched
+                    analysis.status = AnalysisStatus.ERROR
+                    analysis.completed_at = datetime.datetime.now()
+                    
+                    if "OpenAI circuit breaker is open" in str(e):
+                        analysis.progress = "Analysis failed due to API errors"
+                        analysis.error = "Analysis failed due to sustained OpenAI API issues (Circuit Breaker Open)."
+                        await self._broadcast_ws(analysis_id_str, "error", {
+                            "message": analysis.error, "retryable": False
+                        })
+                    else:
+                        analysis.progress = "Analysis failed"
+                        analysis.error = str(e)
+                        await self._broadcast_ws(analysis_id_str, "error", {
+                            "message": str(e), "retryable": True
+                        })
+                    
+                    await session.commit() # Commit the error state
+                else:
+                    # This should not happen if start_analysis worked
+                    self.logger.error(f"Analysis {analysis_id} failed, but analysis object was not found to record error.")
+
+    # --- END MODIFIED ---
 
     async def _broadcast_ws(self, analysis_id: str, event_type: str, payload: dict) -> None:
         """Helper to broadcast a WebSocket event if enabled and manager is available."""
+        # This method needs no changes, as it just uses the analysis_id string
         try:
             if not settings.ENABLE_WEBSOCKETS:
                 return
             if ws_manager is None or WebSocketEvent is None:
                 return
             evt = WebSocketEvent(type=event_type, analysis_id=analysis_id, payload=payload, schema_version=1)
-            # Throttle high-frequency progress updates to reduce client load
             if event_type == "progress" and hasattr(ws_manager, "broadcast_throttled"):
                 await ws_manager.broadcast_throttled(analysis_id, evt)
             else:
                 await ws_manager.broadcast(analysis_id, evt)
         except Exception:
-            # Don't fail analysis due to WS issues
             pass
     
     def _create_report_data(
@@ -383,13 +402,11 @@ class AnalysisService(LoggerMixin):
         file_path: str, 
         violations: List[dict], 
         total_prompts: int, 
-        batch_responses: List # Now contains CompletionResponse or Exception
+        batch_responses: List
     ) -> dict:
         """Create report data structure."""
-        # --- MODIFIED: Count successes/failures from the mixed list ---
         successful_responses = sum(1 for r in batch_responses if isinstance(r, CompletionResponse))
         failed_responses = sum(1 for r in batch_responses if isinstance(r, Exception))
-        # --- END MODIFIED ---
         
         return {
             "contract_name": contract_name,
@@ -413,17 +430,15 @@ class AnalysisService(LoggerMixin):
             "pdf": settings.REPORTS_DIR / f"{base_name}_report.pdf"
         }
         
-        # Generate reports
         generate_report(report_data, str(report_paths["json_file"]))
         generate_text_report(report_data, str(report_paths["txt"]))
         generate_pdf_report(report_data, str(report_paths["pdf"]))
         
-        # Convert to web URLs for the mounted /reports static path
         def to_url(p: Path) -> str:
             return f"/reports/{p.name}"
         return {k: to_url(v) for k, v in report_paths.items()}
     
-    def _create_analysis_summary(self, violations: List[dict], analysis: dict) -> dict:
+    def _create_analysis_summary(self, violations: List[dict], analysis: Analysis) -> dict:
         """Create analysis results summary."""
         severity_counts = {"High": 0, "Medium": 0, "Low": 0}
         
@@ -433,8 +448,8 @@ class AnalysisService(LoggerMixin):
                 severity_counts[severity] += 1
         
         duration = None
-        if analysis.get("completed_at") and analysis.get("started_at"):
-            duration_seconds = (analysis["completed_at"] - analysis["started_at"]).total_seconds()
+        if analysis.completed_at and analysis.started_at:
+            duration_seconds = (analysis.completed_at - analysis.started_at).total_seconds()
             duration = f"{duration_seconds / 60:.1f} minutes"
         
         return {
@@ -445,53 +460,45 @@ class AnalysisService(LoggerMixin):
             "analysis_duration": duration or "Unknown"
         }
     
-    def get_analysis_status(self, analysis_id: str) -> Optional[dict]:
-        """Get the current status of an analysis."""
-        return self.active_analyses.get(analysis_id)
-    
-    def get_analysis_results(self, analysis_id: str) -> Optional[dict]:
-        """Get detailed results of a completed analysis."""
-        analysis = self.active_analyses.get(analysis_id)
-        if not analysis or analysis["status"] != AnalysisStatus.COMPLETED:
+    # --- MODIFIED: Refactored to use database session ---
+    async def get_analysis_status(self, session: AsyncSession, analysis_id: str) -> Optional[Analysis]:
+        """Get the current status of an analysis from the DB."""
+        try:
+            analysis_uuid = uuid.UUID(analysis_id)
+            analysis = await session.get(Analysis, analysis_uuid)
+            return analysis
+        except ValueError: # Invalid UUID format
             return None
-        
-        # Return the full report data
-        return analysis
     
-    def list_active_analyses(self) -> List[dict]:
-        """Get list of all active and recent analyses."""
-        return [
-            {
-                "analysis_id": analysis["id"],
-                "contract_name": analysis["contract_name"],
-                "status": analysis["status"],
-                "started_at": analysis["started_at"],
-                "progress": analysis["progress"]
-            }
-            for analysis in self.active_analyses.values()
-        ]
+    async def get_analysis_results(self, session: AsyncSession, analysis_id: str) -> Optional[Analysis]:
+        """Get detailed results of a completed analysis from the DB."""
+        try:
+            analysis_uuid = uuid.UUID(analysis_id)
+            analysis = await session.get(Analysis, analysis_uuid)
+            
+            if not analysis or analysis.status != AnalysisStatus.COMPLETED:
+                return None
+            
+            return analysis
+        except ValueError:
+            return None
     
-    def cleanup_old_analyses(self, max_age_hours: int = 24) -> int:
-        """Clean up old analysis records."""
-        current_time = datetime.datetime.now()
-        max_age = datetime.timedelta(hours=max_age_hours)
-        
-        to_remove = []
-        for analysis_id, analysis in self.active_analyses.items():
-            if analysis.get("completed_at"):
-                age = current_time - analysis["completed_at"]
-                if age > max_age:
-                    to_remove.append(analysis_id)
-        
-        for analysis_id in to_remove:
-            del self.active_analyses[analysis_id]
-        
-        self.logger.info(f"Cleaned up {len(to_remove)} old analysis records")
-        return len(to_remove)
+    async def list_analyses(self, session: AsyncSession) -> List[Analysis]:
+        """Get list of all analyses from the DB."""
+        statement = select(Analysis).order_by(Analysis.started_at.desc())
+        results = await session.exec(statement)
+        return results.all()
+    # --- END MODIFIED ---
+    
+    # --- MODIFIED: Removed cleanup_old_analyses method ---
+    # The database now keeps a permanent record.
+    # We would write a separate script for archival or deletion if needed.
+    # --- END MODIFIED ---
     
     @property
     def is_ready(self) -> bool:
         """Check if the service is ready to process analyses."""
+        # This check remains relevant
         return self.regulation_manager.get_regulation_index() is not None
     
     def get_regulations_info(self) -> Dict[str, Any]:
