@@ -2,32 +2,36 @@
 """
 Database connection and session management.
 """
+# --- Corrected Imports ---
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession # Use SQLAlchemy's async engine creation
+# --- End Corrected Imports ---
 
-from sqlmodel import SQLModel, create_engine
-from sqlmodel.ext.asyncio.session import AsyncSession, AsyncEngine
-from sqlalchemy.orm import sessionmaker
-from config import settings
+from config import settings # Import settings correctly
 
 # Create the async engine based on the DATABASE_URL from settings
-# The URL format determines the driver (e.g., sqlite+aiosqlite or postgresql+asyncpg)
-engine = AsyncEngine(create_engine(
-    settings.DATABASE_URL, 
-    echo=settings.DB_ECHO,  # Log SQL queries if DB_ECHO is True
-    future=True
-))
-
-# Create an async session factory
+# Use create_async_engine directly
+database_url = settings.DATABASE_URL
+if database_url is None:
+database_url = settings.DATABASE_URL
+if database_url is None:
+    raise ValueError("DATABASE_URL is not set. Please configure settings.DATABASE_URL with a valid SQLAlchemy URL.")
+engine = create_async_engine(
+    database_url,
+    echo=settings.DB_ECHO # Log SQL queries if DB_ECHO is True
+)
 AsyncSessionLocal = sessionmaker(
-    engine, 
-    class_=AsyncSession, 
+    bind=engine, # Use 'bind' argument
+# Create an async session factory using the correct signature
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine, # Use 'bind' argument
     expire_on_commit=False
 )
-
-async def init_db():
-    """
     Initialize the database and create all tables.
     This is called on application startup.
     """
+    # Import SQLModel here only when needed to avoid potential circular imports
+    # if other modules import db.py early
+    from sqlmodel import SQLModel
     async with engine.begin() as conn:
         # This command finds all classes that inherit from SQLModel
         # and creates their corresponding tables in the database.
@@ -36,7 +40,7 @@ async def init_db():
 async def get_session() -> AsyncSession:
     """
     FastAPI dependency to get a database session.
-    
+
     This will be injected into endpoint functions.
     It ensures that a session is created for each request
     and closed automatically when the request is finished.
