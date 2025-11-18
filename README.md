@@ -111,23 +111,37 @@ PS: A sample contract already exists in the data/contracts directory
 
 1. Start the FastAPI server:
 ```bash
-python scripts/run_api.py
+python main.py
 ```
 
 2. Access the API:
 - **API Documentation:** http://localhost:8000/docs
-- **Health Check:** http://localhost:8000/health
-- **Regulation Management:** http://localhost:8000/regulations/
+- **Health Check:** http://localhost:8000/api/v1/health
+- **Regulation Management:** http://localhost:8000/api/v1/regulations
+# Scripts and Tests
 
-### Key API Endpoints
+## scripts/
+Contains utility scripts for maintenance and testing:
+- `rebuild_regulations_index.py`: Rebuilds the regulation vector index for Chroma or Pinecone
+- `test_pdf_generator.py`: Standalone PDF report generator test
 
-- `GET /health` - System health and status
-- `GET /regulations/` - List all regulations
-- `POST /regulations/rebuild` - Rebuild regulation index
-- `POST /upload` - Upload contract for analysis
-- `POST /analysis/start` - Start compliance analysis
-- `GET /analysis/{id}/status` - Check analysis status
-- `GET /analysis/{id}/results` - Get analysis results
+## tests/
+Contains automated unit and API tests to ensure code reliability and catch regressions.
+
+### Key API Endpoints (prefixed with /api/v1)
+
+- `GET /api/v1/health` - System health and status
+- `GET /api/v1/regulations/` - List all regulations
+- `GET /api/v1/regulations/categories` - List categories
+- `GET /api/v1/regulations/category/{category}` - Regulations by category
+- `POST /api/v1/regulations/rebuild` - Rebuild regulation index
+- `POST /api/v1/regulations/rebuild/async` - Schedule async rebuild (Celery)
+- `GET /api/v1/regulations/search?query=...&category=...&limit=10` - Semantic search
+- `POST /api/v1/upload` - Upload contract for analysis
+- `POST /api/v1/analysis/start` - Start compliance analysis
+- `GET /api/v1/analysis/{id}/status` - Check analysis status
+- `GET /api/v1/analysis/{id}/results` - Get analysis results
+- `GET /api/v1/tasks/{task_id}` - Background task status (Celery)
 - Static mounts: `GET /ui` (demo frontend), `GET /reports/{file}` (generated reports)
 
 ### Output
@@ -136,6 +150,24 @@ Both options will:
 - Parse the contract into clauses
 - Analyze clauses for compliance with regulations
 - Output comprehensive reports (JSON, TXT, PDF) in the `reports/` directory
+
+## Managing Regulations
+
+The AI engine's knowledge base can be expanded with new regulations at any time. The system is designed to automatically detect and process new or updated files.
+
+The process is simple:
+
+1.  **Add Regulation Files:** Place your new regulation documents (in PDF format) into the `data/regulations/` directory.
+
+2.  **Trigger Re-indexing:** Call the asynchronous API endpoint to start the re-indexing process. This will scan the directory, find new or modified files, and add them to the vector store.
+
+    ```bash
+    curl -X POST http://localhost:8000/api/v1/regulations/rebuild/async
+    ```
+
+    You will receive a `task_id` in the response. You can use the `GET /api/v1/tasks/{task_id}` endpoint to monitor the status of the indexing task.
+
+Once the task is complete, the new regulations will be part of the AI's knowledge base and will be used in all subsequent compliance analyses.
 
 ## License
 
@@ -153,7 +185,7 @@ This project is **proprietary**. All rights reserved. Contact us for licensing d
 docker build -t complimate-ai-engine:latest .
 ```
 
-### Run Container
+### Run Container (single service)
 ```bash
 docker run --rm -p 8000:8000 \
   -e OPENAI_API_KEY=your_key_here \
@@ -161,6 +193,36 @@ docker run --rm -p 8000:8000 \
   -v $(pwd)/data/regulations:/app/data/regulations:ro \
   -v $(pwd)/vector_store:/app/vector_store \
   complimate-ai-engine:latest
+
+### Run with docker-compose (API + Celery worker)
+
+This project uses Redis (via `REDIS_URL`) as the Celery broker/result backend. RabbitMQ is not used.
+
+1. Create a `.env` file with at least:
+
+```
+OPENAI_API_KEY=your_key_here
+ENABLE_CELERY=True
+REDIS_URL=redis://host.docker.internal:6379/0
+# Vector DB selection:
+VECTOR_DB_PROVIDER=chroma  # or "pinecone"
+# For Pinecone (optional):
+PINECONE_API_KEY=...
+PINECONE_CLOUD=aws
+PINECONE_REGION=us-east-1
+PINECONE_INDEX_NAME=complimate-regulations
+PINECONE_NAMESPACE=default
+```
+
+2. Start services:
+
+```powershell
+docker compose up --build
+```
+
+This brings up:
+- app (FastAPI at http://localhost:8000)
+- worker (Celery worker; queues: rag, default)
 ```
 
 ### Environment Variables (Selected)
@@ -186,6 +248,15 @@ docker run --rm -p 8000:8000 \
 | SECONDARY_BREAKER_RESET_SECONDS | Refinement breaker cooldown (seconds) | 300 |
 | REDIS_URL | Redis backing for cache (optional) | (none) |
 | CACHE_TTL_SECONDS | JSON cache TTL (seconds) | 3600 |
+| ENABLE_CELERY | Enable Celery integration and endpoints | False |
+| CELERY_BROKER_URL | Celery broker URL (defaults to REDIS_URL) | redis://localhost:6379/0 |
+| CELERY_RESULT_BACKEND | Celery result backend (defaults to REDIS_URL) | redis://localhost:6379/0 |
+| VECTOR_DB_PROVIDER | Vector DB provider: chroma or pinecone | chroma |
+| PINECONE_API_KEY | Pinecone API key (if using pinecone) | (none) |
+| PINECONE_CLOUD | Pinecone serverless cloud | aws |
+| PINECONE_REGION | Pinecone serverless region | us-east-1 |
+| PINECONE_INDEX_NAME | Pinecone index name | complimate-regulations |
+| PINECONE_NAMESPACE | Pinecone namespace | default |
 | HYBRID_SEARCH_TOP_K | Hybrid retrieval top-k | 5 |
 | REPORT_ENHANCED_MODE | Enable enhanced report layout (Phase 1) | True |
 | INCLUDE_EXEC_SUMMARY | Include Executive Summary section | True |
@@ -193,7 +264,7 @@ docker run --rm -p 8000:8000 \
 
 ### Health Check
 ```bash
-curl -s http://localhost:8000/health | jq
+curl -s http://localhost:8000/api/v1/health | jq
 ```
 
 ---

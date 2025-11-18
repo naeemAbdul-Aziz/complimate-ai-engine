@@ -1,53 +1,35 @@
-###############################################
-# CompliMate AI Engine - Normalized Dependencies
-# Strategy: Hybrid (conflict resolution + modest upgrades)
-# Date: 2025-10-08
-# Notes:
-#  - Removed duplicate / conflicting pins (chromadb listed twice)
-#  - Dropped monolithic `llama-index` in favor of modular packages actually used
-#  - Aligned pins with currently validated, installed versions where stable
-#  - Upgraded FastAPI/uvicorn/openai to coherent set; kept colorlog modern version
-#  - Dev/test tooling grouped separately for clarity
-#  - For full reproducibility consider exporting a lock file via pip-tools / uv / poetry in future
-###############################################
-
-############## Runtime Core ##############
-fastapi[standard]==0.116.1        # Modern API framework (aligned with Starlette 0.41.x)
-uvicorn==0.35.0                   # ASGI server (matches FastAPI compatibility matrix)
-openai>=1.108.1,<2                   # OpenAI official client (aligns with model usage)
-httpx==0.28.1                     # HTTP client (transitive but pinned for stability)
-python-dotenv==1.1.1              # Environment variable loading
-colorlog==6.8.2                   # Colored console logging
-
-############## Document / PDF Processing ##############
-PyPDF2==3.0.1                     # PDF parsing
-fpdf==1.7.2                       # Simple PDF report generation
-
-############## Vector Store / Persistence ##############
-chromadb==0.5.21                  # Persistent vector storage (removed old 0.4.x / 1.0.x pins)
-
-############## LlamaIndex Modular Stack ##############
-# Replaced monolithic `llama-index` with only required subpackages
-llama-index-core==0.14.3
+fastapi[standard]==0.116.1
+pydantic==2.12.3
+pydantic-settings==2.12.0
+uvicorn==0.35.0
+openai>=1.108.1,<2
+httpx==0.28.1
+python-dotenv==1.1.1
+colorlog==6.8.2
+pypdf==6.3.0
+fpdf2==2.8.5
+chromadb==0.5.21
+llama-index==0.14.5
+llama-index-core==0.14.5
 llama-index-llms-openai==0.6.0
 llama-index-embeddings-openai==0.5.1
 llama-index-retrievers-bm25==0.6.5
 llama-index-vector-stores-chroma==0.5.3
-
-############## Testing ##############
+llama-index-vector-stores-pinecone==0.7.1
+pinecone-client==4.0.0
 pytest==8.4.1
 pytest-asyncio==0.23.0
 pytest-cov==4.1.0
-
-############## Development / Quality ##############
 black==24.8.0
 isort==5.13.2
 flake8==7.0.0
-
-############## Optional / Deferred ##############
-# sqlalchemy==2.0.23                # (Deferred) Metadata persistence layer - revisit when DB layer added
-# alembic==1.12.1                   # (Deferred) Schema migrations
-
-############## Transitive Awareness (Not pinned explicitly) ##############
-# pydantic (via fastapi) | starlette (via fastapi) | typing-extensions (via deps)
-# If deterministic builds required, introduce constraints.txt and resolve with pip-tools
+sqlmodel==0.0.27
+asyncpg==0.30.0
+aiosqlite==0.21.0
+# Authentication and security dependencies
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.20
+# Caching and database
+redis==5.0.1
+celery[redis]==5.3.6

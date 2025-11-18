@@ -15,15 +15,21 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, asdict
 
-from llama_index.core import VectorStoreIndex, Document, Settings
+from llama_index.core import VectorStoreIndex, Document
 from llama_index.core.node_parser import SimpleNodeParser
 from llama_index.vector_stores.chroma import ChromaVectorStore
+# Optional Pinecone support (loaded lazily)
+try:
+    from llama_index.vector_stores.pinecone import PineconeVectorStore  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    PineconeVectorStore = None  # type: ignore
 import chromadb
-from chromadb.config import Settings
-from PyPDF2 import PdfReader
+from chromadb.config import Settings as ChromaSettings
+from pypdf import PdfReader
 
 from config import settings
 from utils import LoggerMixin
+from engine.vector_store.provider import VectorStoreProvider
 
 
 @dataclass
@@ -60,7 +66,8 @@ class RegulationManager(LoggerMixin):
     """Manages multiple regulation documents with persistent storage."""
     
     def __init__(self):
-        self.vector_store: Optional[ChromaVectorStore] = None
+        # Vector store can be ChromaVectorStore or PineconeVectorStore; use broad typing
+        self.vector_store: Optional[Any] = None
         self.regulation_index: Optional[VectorStoreIndex] = None
         self.regulations_metadata: Dict[str, RegulationMetadata] = {}
         self.metadata_file = settings.REGULATIONS_DIR / "regulations_metadata.json"
@@ -78,16 +85,19 @@ class RegulationManager(LoggerMixin):
         self._load_metadata()
     
     def _initialize_storage(self) -> None:
-        """Initialize vector storage system."""
+        """Initialize vector storage via provider abstraction only."""
         try:
-            if settings.USE_PERSISTENT_STORAGE and settings.VECTOR_STORE_TYPE == "chroma":
-                self._initialize_chroma()
+            provider = VectorStoreProvider()
+            store = provider.get_vector_store()
+            if store:
+                self.vector_store = store
+                self.using_persistent_storage = True
+                self.logger.info("Vector store initialized via provider")
             else:
-                self.logger.info("Using in-memory vector storage")
-                
+                self.logger.info("No vector store returned; using in-memory index")
         except Exception as e:
-            self.logger.error(f"Failed to initialize storage: {e}")
-            raise
+            self.logger.error(f"Failed to initialize vector store provider: {e}")
+            self.logger.info("Proceeding with in-memory fallback")
     
     def _initialize_chroma(self) -> None:
         """Initialize ChromaDB persistent storage with robust '_type' error handling."""
@@ -95,7 +105,7 @@ class RegulationManager(LoggerMixin):
             settings.VECTOR_STORE_DIR.mkdir(parents=True, exist_ok=True)
             vector_store_path = str(settings.VECTOR_STORE_DIR)
             chroma_client = chromadb.PersistentClient(
-                settings=Settings(anonymized_telemetry=False, allow_reset=True)
+                settings=ChromaSettings(anonymized_telemetry=False, allow_reset=True)
             )
             collection = None
             try:
@@ -129,7 +139,7 @@ class RegulationManager(LoggerMixin):
         except Exception as e:
             self.logger.error(f"Failed to initialize ChromaDB: {e}")
             try:
-                chroma_client = chromadb.Client(settings=Settings(anonymized_telemetry=False))
+                chroma_client = chromadb.Client(settings=ChromaSettings(anonymized_telemetry=False))
                 collection = chroma_client.create_collection(
                     name=settings.CHROMA_COLLECTION_NAME,
                     metadata={"description": "Ghana legal regulations for compliance analysis"}
@@ -145,6 +155,10 @@ class RegulationManager(LoggerMixin):
                 self.logger.error(f"Failed to initialize in-memory ChromaDB: {fallback_error}")
                 raise
     
+    def _initialize_pinecone(self) -> None:  # pragma: no cover
+        """Deprecated: initialization is handled by VectorStoreProvider."""
+        self.logger.warning("Direct Pinecone init deprecated; using VectorStoreProvider instead.")
+
     def _load_metadata(self) -> None:
         """Load regulations metadata from JSON file."""
         try:
@@ -512,6 +526,44 @@ class RegulationManager(LoggerMixin):
             metadata for metadata in self.regulations_metadata.values()
             if metadata.category == category
         ]
+
+    def search_regulations(self, query: str, category: Optional[str] = None, limit: int = 10) -> List[Dict[str, Any]]:
+        """Semantic search across indexed regulation chunks.
+
+        Returns a list of matches with minimal metadata.
+        Falls back gracefully if index is unavailable.
+        """
+        if limit <= 0:
+            return []
+        index = self.get_regulation_index()
+        if not index:
+            self.logger.warning("Search requested but regulation index unavailable")
+            return []
+        try:
+            from llama_index.core.retrievers import VectorIndexRetriever
+            from llama_index.core.schema import QueryBundle
+            retriever = VectorIndexRetriever(index=index, similarity_top_k=limit)
+            query_bundle = QueryBundle(query_str=query)
+            results = retriever.retrieve(query_bundle)
+            matches: List[Dict[str, Any]] = []
+            for r in results:
+                meta = r.node.metadata or {}
+                if category and meta.get("category") != category:
+                    continue
+                matches.append({
+                    "text": r.node.get_content(),
+                    "score": r.score,
+                    "file_name": meta.get("file_name"),
+                    "category": meta.get("category"),
+                    "title": meta.get("title"),
+                    "tags": meta.get("tags", []),
+                })
+                if len(matches) >= limit:
+                    break
+            return matches
+        except Exception as e:
+            self.logger.error(f"Search failed: {e}")
+            return []
     
     def add_regulation_file(self, file_path: Path, category: str = "general", 
                            metadata_override: Optional[Dict[str, Any]] = None) -> RegulationMetadata:

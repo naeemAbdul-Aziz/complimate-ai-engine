@@ -118,6 +118,26 @@ Logs default to `./logs` relative to repository root. Rotate/size configuration 
 
 ---
 
+## Background Jobs and Broker (Redis vs RabbitMQ)
+
+### Symptom
+Confusion about whether RabbitMQ is required or running.
+
+### Clarification
+This project uses Celery with Redis by default. RabbitMQ is not used.
+
+Celery configuration comes from environment variables:
+- `ENABLE_CELERY=True` to enable related endpoints and scheduling
+- `REDIS_URL` used as default for both `CELERY_BROKER_URL` and `CELERY_RESULT_BACKEND`
+
+When running with docker-compose, a separate `worker` service (same image) launches the Celery worker:
+```
+celery -A tasks.celery_app.celery_app worker -l info -Q rag,default --hostname=rag@%h
+```
+Ensure `tasks/` exists in the built image (Dockerfile copies it) and that `REDIS_URL` points to a reachable Redis instance.
+
+---
+
 ## Need More Help?
 Open an issue with:
 - Commit hash / version (`2.0.2`)

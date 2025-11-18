@@ -12,6 +12,12 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from api.services.analysis_service import AnalysisService
+from config import settings
+if settings.ENABLE_CELERY:
+    try:
+        from tasks.regulation_tasks import rebuild_regulation_index as rebuild_index_task
+    except Exception:
+        rebuild_index_task = None
 # Define BaseResponse here if not available in api.models.schemas
 class BaseResponse(BaseModel):
     success: bool
@@ -60,7 +66,8 @@ class RegulationCategoryResponse(BaseResponse):
     regulations: List[RegulationInfo]
 
 
-router = APIRouter(prefix="/regulations", tags=["regulations"])
+# Router prefix is applied in api/main.py to avoid double-prefixing
+router = APIRouter()
 
 
 class RegulationEndpoints(LoggerMixin):
@@ -82,26 +89,21 @@ async def list_regulations():
     Returns comprehensive information about all regulation documents
     including metadata, categories, and indexing status.
     """
-    try:
-        info = regulation_endpoints.analysis_service.get_regulations_info()
-        
-        regulations = [
-            RegulationInfo(**reg_data) for reg_data in info["regulations"]
-        ]
-        
-        return RegulationsListResponse(
-            success=True,
-            message=f"Retrieved {info['total_regulations']} regulations",
-            total_regulations=info["total_regulations"],
-            categories=info["categories"],
-            storage_type=info["storage_type"],
-            last_updated=info["last_updated"],
-            regulations=regulations
-        )
-        
-    except Exception as e:
-        regulation_endpoints.logger.error(f"Failed to list regulations: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve regulations: {str(e)}")
+    info = regulation_endpoints.analysis_service.get_regulations_info()
+    
+    regulations = [
+        RegulationInfo(**reg_data) for reg_data in info["regulations"]
+    ]
+    
+    return RegulationsListResponse(
+        success=True,
+        message=f"Retrieved {info['total_regulations']} regulations",
+        total_regulations=info["total_regulations"],
+        categories=info["categories"],
+        storage_type=info["storage_type"],
+        last_updated=info["last_updated"],
+        regulations=regulations
+    )
 
 
 @router.get("/categories", response_model=BaseResponse)
@@ -111,21 +113,16 @@ async def list_categories():
     
     Returns a summary of all regulation categories and their counts.
     """
-    try:
-        info = regulation_endpoints.analysis_service.get_regulations_info()
-        
-        return BaseResponse(
-            success=True,
-            message="Retrieved regulation categories",
-            data={
-                "categories": info["categories"],
-                "total_categories": len(info["categories"])
-            }
-        )
-        
-    except Exception as e:
-        regulation_endpoints.logger.error(f"Failed to get categories: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve categories: {str(e)}")
+    info = regulation_endpoints.analysis_service.get_regulations_info()
+    
+    return BaseResponse(
+        success=True,
+        message="Retrieved regulation categories",
+        data={
+            "categories": info["categories"],
+            "total_categories": len(info["categories"])
+        }
+    )
 
 
 @router.get("/category/{category}", response_model=RegulationCategoryResponse)
@@ -136,27 +133,19 @@ async def get_regulations_by_category(category: str):
     Args:
         category: The regulation category (petroleum, mining, environmental, labor, general)
     """
-    try:
-        regulations_data = regulation_endpoints.analysis_service.get_regulations_by_category(category)
-        
-        regulations = [
-            RegulationInfo(**reg_data) for reg_data in regulations_data
-        ]
-        
-        return RegulationCategoryResponse(
-            success=True,
-            message=f"Retrieved {len(regulations)} regulations in category '{category}'",
-            category=category,
-            count=len(regulations),
-            regulations=regulations
-        )
-        
-    except Exception as e:
-        regulation_endpoints.logger.error(f"Failed to get regulations for category {category}: {e}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to retrieve regulations for category '{category}': {str(e)}"
-        )
+    regulations_data = regulation_endpoints.analysis_service.get_regulations_by_category(category)
+    
+    regulations = [
+        RegulationInfo(**reg_data) for reg_data in regulations_data
+    ]
+    
+    return RegulationCategoryResponse(
+        success=True,
+        message=f"Retrieved {len(regulations)} regulations in category '{category}'",
+        category=category,
+        count=len(regulations),
+        regulations=regulations
+    )
 
 
 @router.post("/rebuild", response_model=RegulationRebuildResponse)
@@ -170,25 +159,35 @@ async def rebuild_regulations_index(force: bool = Query(False, description="Forc
     Args:
         force: Whether to force rebuild of all files
     """
-    try:
-        regulation_endpoints.logger.info(f"Starting regulation index rebuild (force={force})")
-        
-        result = regulation_endpoints.analysis_service.rebuild_regulations_index(force=force)
-        
-        return RegulationRebuildResponse(
-            success=True,
-            message=f"Index rebuild completed: {result['files_processed']} files processed",
-            files_processed=result["files_processed"],
-            files_skipped=result["files_skipped"],
-            files_failed=result["files_failed"],
-            total_regulations=result["total_regulations"],
-            processed_files=result["processed_files"],
-            error_files=result["error_files"]
-        )
-        
-    except Exception as e:
-        regulation_endpoints.logger.error(f"Failed to rebuild index: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to rebuild regulation index: {str(e)}")
+    regulation_endpoints.logger.info(f"Starting regulation index rebuild (force={force})")
+    
+    result = regulation_endpoints.analysis_service.rebuild_regulations_index(force=force)
+    
+    return RegulationRebuildResponse(
+        success=True,
+        message=f"Index rebuild completed: {result['files_processed']} files processed",
+        files_processed=result["files_processed"],
+        files_skipped=result["files_skipped"],
+        files_failed=result["files_failed"],
+        total_regulations=result["total_regulations"],
+        processed_files=result["processed_files"],
+        error_files=result["error_files"]
+    )
+
+
+@router.post("/rebuild/async", response_model=BaseResponse)
+async def rebuild_regulations_index_async(force: bool = Query(False, description="Force rebuild even if files haven't changed")):
+    """Schedule an asynchronous regulation index rebuild via Celery (P1).
+
+    Returns a task id which can be polled via the generic Celery result backend.
+    """
+    if not settings.ENABLE_CELERY:
+        raise HTTPException(status_code=400, detail="Celery is not enabled")
+    if rebuild_index_task is None:
+        raise HTTPException(status_code=500, detail="Regulation Celery task not available")
+
+    async_result = rebuild_index_task.apply_async(kwargs={"force": force}, queue="rag")
+    return BaseResponse(success=True, message="Regulation index rebuild scheduled", data={"task_id": async_result.id})
 
 
 @router.get("/status", response_model=BaseResponse)
@@ -199,25 +198,20 @@ async def get_regulation_status():
     Returns information about the regulation index, storage type,
     and readiness status.
     """
-    try:
-        is_ready = regulation_endpoints.analysis_service.is_ready
-        info = regulation_endpoints.analysis_service.get_regulations_info()
-        
-        return BaseResponse(
-            success=True,
-            message="Regulation system status retrieved",
-            data={
-                "is_ready": is_ready,
-                "total_regulations": info["total_regulations"],
-                "storage_type": info["storage_type"],
-                "categories": info["categories"],
-                "last_updated": info["last_updated"]
-            }
-        )
-        
-    except Exception as e:
-        regulation_endpoints.logger.error(f"Failed to get regulation status: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get regulation status: {str(e)}")
+    is_ready = regulation_endpoints.analysis_service.is_ready
+    info = regulation_endpoints.analysis_service.get_regulations_info()
+    
+    return BaseResponse(
+        success=True,
+        message="Regulation system status retrieved",
+        data={
+            "is_ready": is_ready,
+            "total_regulations": info["total_regulations"],
+            "storage_type": info["storage_type"],
+            "categories": info["categories"],
+            "last_updated": info["last_updated"]
+        }
+    )
 
 
 @router.get("/search", response_model=BaseResponse)
@@ -226,34 +220,15 @@ async def search_regulations(
     category: Optional[str] = Query(None, description="Filter by category"),
     limit: int = Query(10, ge=1, le=50, description="Maximum number of results")
 ):
-    """
-    Search through regulation content.
-    
-    Performs semantic search across all indexed regulations to find
-    relevant content matching the query.
-    
-    Args:
-        query: The search query
-        category: Optional category filter
-        limit: Maximum number of results to return
-    """
-    try:
-        # This would require implementing search functionality in the regulation manager
-        # For now, return a placeholder response
-        
-        regulation_endpoints.logger.info(f"Regulation search requested: '{query}' in category '{category}'")
-        
-        return BaseResponse(
-            success=True,
-            message="Search functionality coming soon",
-            data={
-                "query": query,
-                "category": category,
-                "limit": limit,
-                "note": "Advanced regulation search is planned for the next release"
-            }
-        )
-        
-    except Exception as e:
-        regulation_endpoints.logger.error(f"Failed to search regulations: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to search regulations: {str(e)}")
+    """Semantic search across indexed regulation chunks."""
+    results = regulation_endpoints.analysis_service.regulation_manager.search_regulations(query, category, limit)  # type: ignore
+    return BaseResponse(
+        success=True,
+        message=f"Returned {len(results)} search results",
+        data={
+            "query": query,
+            "category": category,
+            "limit": limit,
+            "results": results,
+        }
+    )
