@@ -14,6 +14,21 @@ from sqlalchemy import JSON # Import JSON from sqlalchemy explicitly
 
 from api.models.schemas import AnalysisStatus
 
+class UploadedFile(SQLModel, table=True):
+    """Persistent uploaded file metadata.
+
+    Provides durability for file references across process restarts and
+    horizontal scaling (multiple API workers). In-memory FileService registry
+    remains as a fast cache; DB is source of truth.
+    """
+    file_id: str = Field(primary_key=True, index=True)
+    original_filename: str
+    stored_filename: str
+    file_path: str
+    file_size: int
+    content_type: Optional[str] = Field(default=None)
+    uploaded_at: datetime.datetime = Field(default_factory=datetime.datetime.utcnow, index=True)
+
 class Analysis(SQLModel, table=True):
     """
     Database model for an analysis task.

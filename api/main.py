@@ -10,9 +10,11 @@ import os
 import logging # Already imported
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+
+from api.error_handlers import http_exception_handler, general_exception_handler
 
 # --- Ensure Routers are Imported Correctly ---
 from api.endpoints.health import router as health_router
@@ -20,6 +22,10 @@ from api.endpoints.regulations import router as regulations_router
 from api.endpoints.ws import router as ws_router
 from api.endpoints.upload import router as upload_router
 from api.endpoints.analysis import router as analysis_router
+# NEW: Auth endpoints
+from api.endpoints.auth import router as auth_router
+# NEW: Tasks endpoints (Celery task status)
+from api.endpoints.tasks import router as tasks_router
 # --- End Router Imports ---
 
 from config import settings
@@ -43,7 +49,11 @@ app = FastAPI(
     description="AI-powered contract compliance analysis for Ghana's petroleum sector",
     version=get_version(), # Use the version function
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    exception_handlers={
+        HTTPException: http_exception_handler,
+        Exception: general_exception_handler,
+    }
 )
 
 # CORS middleware for frontend access
@@ -113,33 +123,29 @@ async def on_startup():
         else:
             logger.info("OpenAI API key configured")
 
-        # PDF library conflict detection (copied from context)
+        # PDF library check
         try:
             from importlib import util as importlib_util
             has_pypdf = importlib_util.find_spec('pypdf') is not None
-            # requirements.txt uses PyPDF2, check for that specifically
-            has_pypdf2 = importlib_util.find_spec('PyPDF2') is not None
-            # reporting/report_generator uses fpdf
-            has_fpdf = importlib_util.find_spec('fpdf') is not None
-            # Check for fpdf2 just in case
             has_fpdf2 = importlib_util.find_spec('fpdf2') is not None
-
-            # Logic needs adjustment based on actual libraries used
-            # PyPDF2 is in requirements, fpdf is used in reporting
-            # No direct conflict mentioned, but potential confusion.
-            # Let's log what's found:
-            pdf_libs = []
-            if has_pypdf: pdf_libs.append("pypdf")
-            if has_pypdf2: pdf_libs.append("PyPDF2")
-            if has_fpdf: pdf_libs.append("fpdf (PyFPDF)")
-            if has_fpdf2: pdf_libs.append("fpdf2")
-            logger.info(f"Detected PDF libraries: {', '.join(pdf_libs)}")
-            # Keep original warning logic if needed, but adapt based on project needs
-            # The TROUBLESHOOTING.md suggests standardizing on pypdf, but requirements use PyPDF2.
-            # Sticking to just logging for now.
+            logger.info(f"PDF libraries check: pypdf (reader) found: {has_pypdf}, fpdf2 (writer) found: {has_fpdf2}")
+            if not has_pypdf or not has_fpdf2:
+                logger.warning("A required PDF library is missing. Please run 'pip install pypdf fpdf2'")
 
         except Exception as pdf_check_e:
             logger.warning(f"Could not perform PDF library check: {pdf_check_e}")
+
+        # Log registered routes to aid debugging 404s in tests
+        try:
+            route_paths = []
+            for r in app.routes:
+                try:
+                    route_paths.append(getattr(r, 'path', str(r)))
+                except Exception:
+                    route_paths.append(str(r))
+            logger.info(f"Registered routes ({len(route_paths)}): {route_paths}")
+        except Exception as route_log_e:
+            logger.warning(f"Could not enumerate routes: {route_log_e}")
 
         logger.info("CompliMate AI Engine API startup completed")
 
@@ -154,6 +160,9 @@ app.include_router(health_router, prefix="/api/v1", tags=["Health"]) # Added pre
 app.include_router(regulations_router, prefix="/api/v1/regulations", tags=["Regulations"]) # Added prefix/tags based on user structure
 app.include_router(upload_router, prefix="/api/v1", tags=["File Upload"]) # Added prefix/tags based on user structure
 app.include_router(analysis_router, prefix="/api/v1/analysis", tags=["Analysis"]) # Added prefix/tags based on user structure
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"]) # Added prefix/tags for auth endpoints
+# Celery task status endpoints
+app.include_router(tasks_router, prefix="/api/v1", tags=["Tasks"])  # exposes /api/v1/tasks/{task_id}
 if settings.ENABLE_WEBSOCKETS:
     app.include_router(ws_router, prefix="/ws", tags=["WebSocket"]) # Added prefix/tags based on user structure
 
@@ -203,6 +212,9 @@ async def root():
             "analysis_start": "/api/v1/analysis/start",
             "analysis_status": "/api/v1/analysis/{id}/status",
             "analysis_results": "/api/v1/analysis/{id}/results",
+            "regulation_rebuild_async": "/api/v1/regulations/rebuild/async",
+            "regulation_search": "/api/v1/regulations/search",
+            "task_status": "/api/v1/tasks/{task_id}",
             "frontend_ui": "/ui",
             "reports": "/reports"
         }

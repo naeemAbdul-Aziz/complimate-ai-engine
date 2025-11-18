@@ -9,7 +9,7 @@ from llama_index.core import VectorStoreIndex, Document, Settings
 from llama_index.llms.openai import OpenAI
 from llama_index.embeddings.openai import OpenAIEmbedding
 from config.settings import settings as app_settings
-from PyPDF2 import PdfReader
+from pypdf import PdfReader
 
 # Import engine modules
 from engine.parsing import parse_contract
@@ -206,7 +206,8 @@ async def main():
             base_report_name = os.path.splitext(contract_file_name)[0] + "_" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S") # Add timestamp
 
             try:
-                contract_nodes = parse_contract(contract_file_path)
+                parsed_nodes = parse_contract(contract_file_path)
+                contract_nodes = list(parsed_nodes or [])
             except Exception as e:
                 # Error already logged in parse_contract
                 logger.error(f"Skipping contract {contract_file_name} due to parsing error.")
@@ -383,7 +384,7 @@ async def main():
                 "post_refinement_count": len(all_violations),
                 "reduction": 0,
             }
-            if app_settings.ENABLE_SECONDARY_REASONING and all_violations:
+            if app_settings.ENABLE_SECONDARY_REASONING and getattr(app_settings, 'SECONDARY_REFINEMENT_ENABLED', True) and all_violations:
                 try:
                     from engine.reasoning_refinement import refine_violations  # local import to avoid circular
                     refinement_stats["enabled"] = True

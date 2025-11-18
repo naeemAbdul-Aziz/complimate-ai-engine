@@ -18,9 +18,7 @@ from pathlib import Path
 # --- SQLModel/SQLAlchemy Imports ---
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
-# --- REMOVED `desc` import as it's not used in the final version ---
-# from sqlalchemy import desc
-# --- END REMOVED ---
+from sqlalchemy import desc
 # --- End DB Imports ---
 
 # --- LlamaIndex Imports ---
@@ -138,8 +136,19 @@ class AnalysisService:
             analysis_id_str = str(new_analysis.id)
             self.logger.info(f"Created analysis record in DB with ID: {analysis_id_str}")
 
-            asyncio.create_task(self._run_analysis(analysis_id_str))
-            self.logger.info(f"Background task scheduled for analysis {analysis_id_str}")
+            # Enqueue background processing via Celery if enabled, else fallback to asyncio task
+            if getattr(settings, "ENABLE_CELERY", False):
+                try:
+                    from tasks.analysis_tasks import run_analysis_task  # Local import to avoid mandatory dependency
+                    run_analysis_task.delay(analysis_id_str)
+                    self.logger.info(f"Celery task enqueued for analysis {analysis_id_str}")
+                except Exception as celery_err:
+                    self.logger.warning(f"Celery enqueue failed ({celery_err}); falling back to asyncio task.")
+                    asyncio.create_task(self._run_analysis(analysis_id_str))
+                    self.logger.info(f"Asyncio background task scheduled for analysis {analysis_id_str}")
+            else:
+                asyncio.create_task(self._run_analysis(analysis_id_str))
+                self.logger.info(f"Asyncio background task scheduled for analysis {analysis_id_str}")
 
             success = True
             return analysis_id_str
@@ -203,6 +212,7 @@ class AnalysisService:
 
         analysis_id: Optional[uuid.UUID] = None
         analysis: Optional[Analysis] = None
+        used_regulation_files = set()
 
         try:
             analysis_id = uuid.UUID(analysis_id_str)
@@ -230,7 +240,7 @@ class AnalysisService:
 
                 # --- Parse Contract ---
                 self.logger.debug(f"[{analysis_id}] Parsing contract file: {analysis.file_path}")
-                contract_nodes = parse_contract(analysis.file_path)
+                contract_nodes = list(parse_contract(analysis.file_path))
                 if not contract_nodes:
                     raise ValueError(f"No content could be extracted from contract file: {analysis.file_path}")
                 self.logger.info(f"[{analysis_id}] Parsed contract into {len(contract_nodes)} nodes.")
@@ -275,6 +285,8 @@ class AnalysisService:
                         reg_metadata = reg_node.metadata or {}
                         if not reg_content or reg_content.isspace():
                             continue
+                        
+                        used_regulation_files.add(reg_metadata.get("file_name", "Unknown"))
 
                         prompt = create_violation_prompt(contract_content, reg_content, reg_metadata)
                         tasks.append(self._execute_prompt_with_semaphore(prompt, semaphore))
@@ -354,7 +366,8 @@ class AnalysisService:
                     analysis.file_path,
                     all_violations,
                     len(tasks),
-                    typed_batch_responses
+                    typed_batch_responses,
+                    list(used_regulation_files)
                 )
 
                 # --- Save Reports (Now Async) ---
@@ -428,17 +441,17 @@ class AnalysisService:
         file_path: str,
         violations: List[dict],
         total_prompts: int,
-        batch_responses: List[Union[CompletionResponse, Exception]]
+        batch_responses: List[Union[CompletionResponse, Exception]],
+        regulation_files: List[str]
     ) -> dict:
         """Create report data structure."""
         successful_responses = sum(1 for r in batch_responses if isinstance(r, CompletionResponse))
         failed_responses = sum(1 for r in batch_responses if isinstance(r, Exception))
-        regulation_filename = settings.REGULATION_FILE.name if isinstance(settings.REGULATION_FILE, Path) else str(settings.REGULATION_FILE)
 
         return {
             "contract_name": contract_name,
             "contract_path": file_path,
-            "regulation_file": regulation_filename,
+            "regulation_files": regulation_files,
             "analysis_timestamp": datetime.datetime.now().isoformat(),
             "total_prompts_sent": total_prompts,
             "successful_responses": successful_responses,
@@ -552,31 +565,18 @@ class AnalysisService:
             self.logger.exception(f"Database error getting results for {analysis_id}: {e}")
             raise
 
-    # --- list_analyses ---
-    # --- CORRECTED: Use Python sorting instead of DB ordering ---
     async def list_analyses(self, session: AsyncSession, limit: int = 100) -> List[Analysis]:
         """Get list of recent analyses from the DB, sorted descending by start time."""
         self.logger.debug(f"Querying list of recent analyses (limit: {limit})")
         try:
-            # Select without ordering in the database, apply limit
-            statement = select(Analysis).limit(limit)
+            statement = select(Analysis).order_by(getattr(Analysis, "started_at").desc()).limit(limit)
             results = await session.exec(statement)
-            analyses = results.all() # Fetch all results up to the limit
-
-            # Sort the results in Python after fetching
-            # Use getattr for safety, default to minimum datetime if started_at is missing (unlikely)
-            analyses_sorted = sorted(
-                analyses,
-                key=lambda analysis: getattr(analysis, 'started_at', datetime.datetime.min),
-                reverse=True # Descending order (newest first)
-            )
-
-            self.logger.info(f"Retrieved and sorted {len(analyses_sorted)} analysis records from DB.")
-            return list(analyses_sorted) # Ensure return type is List
+            analyses = results.all()
+            self.logger.info(f"Retrieved {len(analyses)} analysis records from DB.")
+            return list(analyses)
         except Exception as e:
             self.logger.exception(f"Database error listing analyses: {e}")
             raise
-    # --- END CORRECTION ---
 
     @property
     def is_ready(self) -> bool:

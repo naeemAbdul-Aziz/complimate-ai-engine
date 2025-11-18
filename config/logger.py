@@ -173,6 +173,15 @@ def configure_logging(
     root_logger.setLevel(getattr(logging, settings.LOG_LEVEL))
     root_logger.handlers.clear()
     
+    # Silence noisy third-party loggers (e.g., ChromaDB telemetry/posthog)
+    # These can emit benign errors/warnings on Windows or when telemetry is disabled.
+    for noisy in [
+        "chromadb.telemetry",
+        "chromadb.telemetry.product.posthog",
+        "posthog",
+    ]:
+        logging.getLogger(noisy).setLevel(logging.CRITICAL)
+    
     # Create file formatter
     file_formatter = logging.Formatter(
         "%(asctime)s | %(levelname)-8s | %(name)-20s | %(funcName)-15s:%(lineno)-4d | %(message)s"

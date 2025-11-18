@@ -37,8 +37,8 @@ complimate-ai-engine/
 │   ├── __init__.py
 │   └── report_generator.py
 ├── reports/                # Generated compliance reports
-├── scripts/                # Utility and maintenance scripts
-├── tests/                  # Test suite
+├── scripts/                # Utility scripts (index rebuild, PDF test)
+├── tests/                  # Automated test suite (unit, API)
 ├── uploads/                # Temporary file uploads
 ├── utils/                  # Helper utilities
 ├── main.py                 # Main application entry point
@@ -49,7 +49,7 @@ complimate-ai-engine/
 ## Key Features
 
 ### ✅ Clean Architecture
-- **Removed unnecessary files**: No redundant `__init__.py`, `chroma/` directories
+- **Removed obsolete scripts**: Only essential maintenance and test scripts retained
 - **Organized documentation**: All docs centralized in `docs/` folder
 - **Proper separation**: Code, documentation, and examples clearly separated
 

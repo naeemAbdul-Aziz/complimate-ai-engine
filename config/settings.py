@@ -4,46 +4,52 @@ Configuration settings for CompliMate AI Engine
 ==============================================
 
 This module contains all configuration settings, environment variables,
-and constants used throughout the application.
+and constants used throughout the application, using Pydantic's BaseSettings.
 """
 
-import os
 from pathlib import Path
-from typing import Optional
-from dotenv import load_dotenv
+from typing import Optional, List, Dict, Any
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Load environment variables
-load_dotenv()
-
-class Settings:
-    """Application settings and configuration."""
+class Settings(BaseSettings):
+    """Application settings and configuration, loaded from .env file and environment."""
     
+    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra='ignore')
+
     # API Configuration
-    # CHANGED: Default host is now 127.0.0.1 for a clickable link in local dev
-    API_HOST: str = os.getenv("API_HOST", "127.0.0.1")
-    API_PORT: int = int(os.getenv("API_PORT", "8000"))
-    API_RELOAD: bool = os.getenv("API_RELOAD", "True").lower() == "true"
-    API_LOG_LEVEL: str = os.getenv("API_LOG_LEVEL", "info")
+    API_HOST: str = "127.0.0.1"
+    API_PORT: int = 8000
+    API_RELOAD: bool = True
+    API_LOG_LEVEL: str = "info"
     
+    # Database Configuration
+    DATABASE_URL: Optional[str] = None
+    DB_ECHO: bool = False
+    
+    # Redis Configuration
+    REDIS_URL: Optional[str] = None
+    CACHE_TTL_SECONDS: int = 3600
+
+    # Background Jobs / Celery
+    ENABLE_CELERY: bool = False
+    CELERY_BROKER_URL: Optional[str] = "redis://localhost:6379/0"
+    CELERY_RESULT_BACKEND: Optional[str] = "redis://localhost:6379/0"
+
     # OpenAI Configuration
-    OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
-    # Primary reasoning model (set default to highest reasoning fidelity)
-    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4.1")
-    OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-large")
-    SECONDARY_REASONING_MODEL: str = os.getenv("SECONDARY_REASONING_MODEL", "gpt-4.1")
-    ENABLE_SECONDARY_REASONING: bool = os.getenv("ENABLE_SECONDARY_REASONING", "True").lower() == "true"
-    OPENAI_REQUEST_TIMEOUT: float = float(os.getenv("OPENAI_REQUEST_TIMEOUT", "180.0"))
-    OPENAI_MAX_RETRIES: int = int(os.getenv("OPENAI_MAX_RETRIES", "3"))
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_MODEL: str = "gpt-4.1"
+    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-large"
+    SECONDARY_REASONING_MODEL: str = "gpt-4.1"
+    ENABLE_SECONDARY_REASONING: bool = True
+    OPENAI_REQUEST_TIMEOUT: float = 180.0
+    OPENAI_MAX_RETRIES: int = 3
     
     # Secondary reasoning specific controls
-    SECONDARY_REASONING_MAX_RETRIES: int = int(os.getenv("SECONDARY_REASONING_MAX_RETRIES", "1"))
-    # INCREASED DEADLINE to 90 seconds (was 20)
-    SECONDARY_REASONING_DEADLINE_SECONDS: float = float(os.getenv("SECONDARY_REASONING_DEADLINE_SECONDS", "90"))
-    # INCREASED REQUEST TIMEOUT to 60 seconds (was 12)
-    SECONDARY_REASONING_REQUEST_TIMEOUT: float = float(os.getenv("SECONDARY_REASONING_REQUEST_TIMEOUT", "60"))
-    # Secondary refinement adaptive controls
-    SECONDARY_COMPLEXITY_THRESHOLD: int = int(os.getenv("SECONDARY_COMPLEXITY_THRESHOLD", "40"))
-    SECONDARY_REASONING_MODEL_FAST: str = os.getenv("SECONDARY_REASONING_MODEL_FAST", "gpt-4o")
+    SECONDARY_REASONING_MAX_RETRIES: int = 1
+    SECONDARY_REASONING_DEADLINE_SECONDS: float = 90.0
+    SECONDARY_REASONING_REQUEST_TIMEOUT: float = 60.0
+    SECONDARY_COMPLEXITY_THRESHOLD: int = 40
+    SECONDARY_REASONING_MODEL_FAST: str = "gpt-4o"
     
     # File paths
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
@@ -54,129 +60,101 @@ class Settings:
     CONTRACT_FOLDER: Path = DATA_DIR / "contracts"
     VECTOR_STORE_DIR: Path = BASE_DIR / "vector_store"
     
-    # Legacy single regulation file (for backward compatibility)
+    # Legacy single regulation file
     REGULATION_FILE: Path = REGULATIONS_DIR / "li_2204.pdf"
     
     # Analysis Configuration
-    MAX_CONCURRENT_ANALYSES: int = int(os.getenv("MAX_CONCURRENT_ANALYSES", "5"))
-    ANALYSIS_TIMEOUT_MINUTES: int = int(os.getenv("ANALYSIS_TIMEOUT_MINUTES", "30"))
-    HYBRID_SEARCH_TOP_K: int = int(os.getenv("HYBRID_SEARCH_TOP_K", "5"))
+    MAX_CONCURRENT_ANALYSES: int = 5
+    ANALYSIS_TIMEOUT_MINUTES: int = 30
+    HYBRID_SEARCH_TOP_K: int = 5
     
     # Vector Storage Configuration
-    USE_PERSISTENT_STORAGE: bool = os.getenv("USE_PERSISTENT_STORAGE", "True").lower() == "true"
-    VECTOR_STORE_TYPE: str = os.getenv("VECTOR_STORE_TYPE", "chroma")  # "chroma" or "memory"
-    CHROMA_COLLECTION_NAME: str = os.getenv("CHROMA_COLLECTION_NAME", "ghana_regulations")
+    USE_PERSISTENT_STORAGE: bool = True
+    VECTOR_STORE_TYPE: str = "chroma"
+    CHROMA_COLLECTION_NAME: str = "ghana_regulations"
+    VECTOR_DB_PROVIDER: str = "chroma"
+    PINECONE_API_KEY: Optional[str] = None
+    PINECONE_INDEX_NAME: str = "complimate-regulations"
+    PINECONE_NAMESPACE: str = "default"
+    PINECONE_CLOUD: str = "aws"
+    PINECONE_REGION: str = "us-east-1"
     
-    # Multi-regulation Configuration (current active scope: petroleum only)
-    REGULATION_CATEGORIES: dict = {
+    # Multi-regulation Configuration
+    REGULATION_CATEGORIES: Dict[str, Any] = {
         "petroleum": ["li_2204.pdf"],
     }
-    # Future expansion placeholders (uncomment when adding regulations):
-    # "mining": []
-    # "environmental": []
-    # "labor": []
-    # "general": []
     
     # Regulation Processing
-    CHUNK_SIZE: int = int(os.getenv("REGULATION_CHUNK_SIZE", "1000"))
-    CHUNK_OVERLAP: int = int(os.getenv("REGULATION_CHUNK_OVERLAP", "200"))
-    ENABLE_METADATA_EXTRACTION: bool = os.getenv("ENABLE_METADATA_EXTRACTION", "True").lower() == "true"
+    CHUNK_SIZE: int = 1000
+    CHUNK_OVERLAP: int = 200
+    ENABLE_METADATA_EXTRACTION: bool = True
     
     # File Upload Configuration
-    MAX_FILE_SIZE_MB: int = int(os.getenv("MAX_FILE_SIZE_MB", "50"))
+    MAX_FILE_SIZE_MB: int = 50
     ALLOWED_FILE_EXTENSIONS: tuple = ('.pdf', '.txt', '.docx')
     
     # Logging Configuration
-    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
+    LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     
     # Security Configuration
-    CORS_ORIGINS: list = os.getenv("CORS_ORIGINS", "*").split(",")
-    RATE_LIMIT_REQUESTS: int = int(os.getenv("RATE_LIMIT_REQUESTS", "100"))
-    RATE_LIMIT_WINDOW: int = int(os.getenv("RATE_LIMIT_WINDOW", "3600"))  # seconds
-    REQUIRE_API_KEY: bool = os.getenv("REQUIRE_API_KEY", "False").lower() == "true"
-    API_KEY: Optional[str] = os.getenv("API_KEY")  # simple shared secret mode
+    CORS_ORIGINS: List[str] = ["*"]
+    RATE_LIMIT_REQUESTS: int = 100
+    RATE_LIMIT_WINDOW: int = 3600
+    REQUIRE_API_KEY: bool = False
+    API_KEY: Optional[str] = None
+    
+    # JWT Authentication
+    import secrets
+    _jwt_default = secrets.token_urlsafe(48)
+    JWT_SECRET_KEY: str = _jwt_default
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    
+    # Account Security
+    MAX_LOGIN_ATTEMPTS: int = 5
+    LOCKOUT_DURATION_MINUTES: int = 30
 
     # WebSocket / Realtime
-    ENABLE_WEBSOCKETS: bool = os.getenv("ENABLE_WEBSOCKETS", "True").lower() == "true"
-    MAX_WS_CONNECTIONS: int = int(os.getenv("MAX_WS_CONNECTIONS", "100"))
-    WS_HEARTBEAT_SECONDS: int = int(os.getenv("WS_HEARTBEAT_SECONDS", "30"))
+    ENABLE_WEBSOCKETS: bool = True
+    MAX_WS_CONNECTIONS: int = 100
+    WS_HEARTBEAT_SECONDS: int = 30
 
-    # Rate limiting / circuit breaker (in-memory for now)
-    # --- ADDED ---
-    OPENAI_CONCURRENCY_LIMIT: int = int(os.getenv("OPENAI_CONCURRENCY_LIMIT", "10"))
-    # --- END ADDED ---
-    OPENAI_MAX_TOKENS_PER_MINUTE: int = int(os.getenv("OPENAI_MAX_TOKENS_PER_MINUTE", "60000"))
-    OPENAI_MAX_REQUESTS_PER_MINUTE: int = int(os.getenv("OPENAI_MAX_REQUESTS_PER_MINUTE", "60"))
-    CIRCUIT_BREAKER_FAIL_THRESHOLD: int = int(os.getenv("CIRCUIT_BREAKER_FAIL_THRESHOLD", "5"))
-    CIRCUIT_BREAKER_RESET_SECONDS: int = int(os.getenv("CIRCUIT_BREAKER_RESET_SECONDS", "120"))
-    # Secondary refinement breaker tuning
-    SECONDARY_BREAKER_FAIL_THRESHOLD: int = int(os.getenv("SECONDARY_BREAKER_FAIL_THRESHOLD", "2"))
-    SECONDARY_BREAKER_RESET_SECONDS: int = int(os.getenv("SECONDARY_BREAKER_RESET_SECONDS", "300"))
+    # Rate limiting / circuit breaker
+    OPENAI_CONCURRENCY_LIMIT: int = 10
+    OPENAI_MAX_TOKENS_PER_MINUTE: int = 60000
+    OPENAI_MAX_REQUESTS_PER_MINUTE: int = 60
+    CIRCUIT_BREAKER_FAIL_THRESHOLD: int = 5
+    CIRCUIT_BREAKER_RESET_SECONDS: int = 120
+    SECONDARY_BREAKER_FAIL_THRESHOLD: int = 2
+    SECONDARY_BREAKER_RESET_SECONDS: int = 300
 
     # Deduplication / Grouping Controls
-    GROUPING_ENABLED: bool = os.getenv("GROUPING_ENABLED", "True").lower() == "true"
-    DEDUPE_SIM_THRESHOLD: float = float(os.getenv("DEDUPE_SIM_THRESHOLD", "0.90"))
-    USE_EMBEDDING_SIMILARITY: bool = os.getenv("USE_EMBEDDING_SIMILARITY", "False").lower() == "true"
-    MAX_PRUNE_RATIO: float = float(os.getenv("MAX_PRUNE_RATIO", "0.60"))  # max allowed reduction within a cluster
-    MIN_ITEMS_AFTER_DEDUPE: int = int(os.getenv("MIN_ITEMS_AFTER_DEDUPE", "1"))
+    GROUPING_ENABLED: bool = True
+    DEDUPE_SIM_THRESHOLD: float = 0.90
+    USE_EMBEDDING_SIMILARITY: bool = False
+    MAX_PRUNE_RATIO: float = 0.60
+    MIN_ITEMS_AFTER_DEDUPE: int = 1
 
-    # Reporting Enhancements (Phase 1)
-    REPORT_ENHANCED_MODE: bool = os.getenv("REPORT_ENHANCED_MODE", "True").lower() == "true"
-    INCLUDE_EXEC_SUMMARY: bool = os.getenv("INCLUDE_EXEC_SUMMARY", "True").lower() == "true"
-    INCLUDE_MRIA: bool = os.getenv("INCLUDE_MRIA", "True").lower() == "true"
-    
-    # Database Configuration (for future use)
-    DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL")
-    DB_ECHO: bool = os.getenv("DB_ECHO", "False").lower() == "true"
-    
-    # Redis Configuration (for caching)
-    REDIS_URL: Optional[str] = os.getenv("REDIS_URL")
-    CACHE_TTL_SECONDS: int = int(os.getenv("CACHE_TTL_SECONDS", "3600"))
-    
-    @classmethod
-    def validate(cls) -> None:
-        """Validate required configuration settings."""
-        if not cls.OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY environment variable is required")
-        
-        # Create directories if they don't exist
-        for directory in [cls.DATA_DIR, cls.UPLOADS_DIR, cls.REPORTS_DIR]:
-            directory.mkdir(exist_ok=True, parents=True)
-        
-        # Check if regulation file exists
-        if not cls.REGULATION_FILE.exists():
-            raise FileNotFoundError(f"Regulation file not found: {cls.REGULATION_FILE}")
+    # Reporting Enhancements
+    REPORT_ENHANCED_MODE: bool = True
+    INCLUDE_EXEC_SUMMARY: bool = True
+    INCLUDE_MRIA: bool = True
 
-# Create settings instance
+    # PDF / Reporting Font Configuration
+    # If USE_UNICODE_FONT is True and UNICODE_FONT_PATH points to a valid TTF file,
+    # the report generator will attempt to register and use that font for improved
+    # Unicode coverage in PDFs. Falls back gracefully to core fonts if unavailable.
+    USE_UNICODE_FONT: bool = False
+    UNICODE_FONT_PATH: str = "fonts/DejaVuSans.ttf"
+
+    # Explicit secondary refinement toggle (alias for ENABLE_SECONDARY_REASONING for clarity).
+    # Set to False to bypass the secondary reasoning refinement stage even if ENABLE_SECONDARY_REASONING is True.
+    SECONDARY_REFINEMENT_ENABLED: bool = True
+
+# Create a single, importable settings instance
 settings = Settings()
-
-# Environment-specific configurations
-class DevelopmentSettings(Settings):
-    """Development-specific settings."""
-    API_RELOAD = True
-    LOG_LEVEL = "DEBUG"
-
-class ProductionSettings(Settings):
-    """Production-specific settings."""
-    API_RELOAD = False
-    LOG_LEVEL = "INFO"
-    API_HOST = "0.0.0.0" # Production should always bind to 0.0.0.0
-
-class TestingSettings(Settings):
-    """Testing-specific settings."""
-    LOG_LEVEL = "WARNING"
-    UPLOADS_DIR = Path("/tmp/complimate_test_uploads")
-    REPORTS_DIR = Path("/tmp/complimate_test_reports")
-
-# Factory function to get settings based on environment
-def get_settings() -> Settings:
-    """Get settings based on environment."""
-    env = os.getenv("ENVIRONMENT", "development").lower()
-    
-    if env == "production":
-        return ProductionSettings()
-    elif env == "testing":
-        return TestingSettings()
-    else:
-        return DevelopmentSettings()
+# Optional getter for settings (for legacy imports)
+def get_settings():
+    return settings

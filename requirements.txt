@@ -1,11 +1,13 @@
 fastapi[standard]==0.116.1
+pydantic==2.12.3
+pydantic-settings==2.12.0
 uvicorn==0.35.0
 openai>=1.108.1,<2
 httpx==0.28.1
 python-dotenv==1.1.1
 colorlog==6.8.2
-PyPDF2==3.0.1
-fpdf==1.7.2
+pypdf==6.3.0
+fpdf2==2.8.5
 chromadb==0.5.21
 llama-index==0.14.5
 llama-index-core==0.14.5
@@ -13,6 +15,8 @@ llama-index-llms-openai==0.6.0
 llama-index-embeddings-openai==0.5.1
 llama-index-retrievers-bm25==0.6.5
 llama-index-vector-stores-chroma==0.5.3
+llama-index-vector-stores-pinecone==0.7.1
+pinecone-client==4.0.0
 pytest==8.4.1
 pytest-asyncio==0.23.0
 pytest-cov==4.1.0
@@ -22,3 +26,10 @@ flake8==7.0.0
 sqlmodel==0.0.27
 asyncpg==0.30.0
 aiosqlite==0.21.0
+# Authentication and security dependencies
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.20
+# Caching and database
+redis==5.0.1
+celery[redis]==5.3.6

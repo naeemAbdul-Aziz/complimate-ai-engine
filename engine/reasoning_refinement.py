@@ -245,7 +245,8 @@ def refine_violations(violations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     if not violations:
         return violations
 
-    if not app_settings.ENABLE_SECONDARY_REASONING:
+    # Respect both original and new alias toggle
+    if not app_settings.ENABLE_SECONDARY_REASONING or not getattr(app_settings, 'SECONDARY_REFINEMENT_ENABLED', True):
         return violations
 
     if OpenAIClient is None:

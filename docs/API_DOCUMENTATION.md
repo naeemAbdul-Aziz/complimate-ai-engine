@@ -15,6 +15,7 @@ The CompliMate API v2.0 provides endpoints for contract compliance analysis agai
 ```
 http://localhost:8000
 ```
+All API routes are prefixed with `/api/v1`.
 
 ## Interactive Documentation
 - **Swagger UI:** http://localhost:8000/docs
@@ -28,7 +29,7 @@ Currently, no authentication is required. The service uses an OpenAI API key con
 ### Regulation Management
 
 #### 1. List Regulations
-**GET** `/regulations/`
+**GET** `/api/v1/regulations/`
 
 Get a list of all available regulations with their metadata.
 
@@ -56,8 +57,8 @@ Get a list of all available regulations with their metadata.
 }
 ```
 
-#### 2. Rebuild Regulation Index
-POST `/regulations/rebuild`
+#### 2. Rebuild Regulation Index (sync)
+POST `/api/v1/regulations/rebuild`
 
 Rebuild the regulation index, optionally forcing re-indexing of all files.
 
@@ -82,7 +83,17 @@ Rebuild the regulation index, optionally forcing re-indexing of all files.
 ```
 
 #### 3. Regulation System Status
-GET `/regulations/status`
+GET `/api/v1/regulations/status`
+
+#### 4. Regulation Search (semantic)
+GET `/api/v1/regulations/search?query=...&category=...&limit=10`
+
+Returns ranked results across indexed regulation chunks. Optional `category` filters by regulation category.
+
+#### 5. Rebuild Regulation Index (async)
+POST `/api/v1/regulations/rebuild/async`
+
+Schedules a background rebuild using Celery. Returns a `task_id` you can poll via the tasks endpoint.
 
 Get the current status of the regulation management system.
 
@@ -101,8 +112,8 @@ Get the current status of the regulation management system.
 
 ### Contract Analysis
 
-#### 4. Health Check
-GET `/health`
+#### Health Check
+GET `/api/v1/health`
 
 Check if the API server and dependencies are running properly.
 
@@ -119,8 +130,8 @@ Check if the API server and dependencies are running properly.
 }
 ```
 
-#### 5. Upload Contract
-POST `/upload`
+#### Upload Contract
+POST `/api/v1/upload`
 
 Upload a contract file for analysis. Supports PDF, TXT, and DOCX files.
 
@@ -142,8 +153,8 @@ Upload a contract file for analysis. Supports PDF, TXT, and DOCX files.
 - `400`: Invalid file type
 - `500`: Upload error
 
-#### 6. Start Analysis
-POST `/analysis/start`
+#### Start Analysis
+POST `/api/v1/analysis/start`
 
 Start compliance analysis for a previously uploaded contract file.
 
@@ -170,8 +181,8 @@ Response:
 - `404`: File not found
 - `500`: Analysis start error
 
-#### 7. Check Analysis Status
-GET `/analysis/{analysis_id}/status`
+#### Check Analysis Status
+GET `/api/v1/analysis/{analysis_id}/status`
 
 Check the status of a running analysis.
 
@@ -219,8 +230,8 @@ Response (Error):
 }
 ```
 
-#### 8. Get Analysis Results
-GET `/analysis/{analysis_id}/results`
+#### Get Analysis Results
+GET `/api/v1/analysis/{analysis_id}/results`
 
 Get the detailed analysis results as JSON.
 
@@ -254,6 +265,13 @@ Note: If the analysis is not completed yet, this endpoint returns HTTP 409.
 
 #### 9. Download Reports
 There is no dedicated download route. Reports are exposed under the static mount at `/reports`. Use the `report_paths` URLs provided by the status or results responses to download JSON/TXT/PDF directly.
+
+### Background Tasks
+
+#### Task Status (Celery)
+GET `/api/v1/tasks/{task_id}`
+
+Returns current state and optional result for a scheduled background task when Celery is enabled.
 
 ### Static Frontend and WebSockets
 
@@ -326,19 +344,25 @@ checkStatus(startData.analysis_id);
 
 ```bash
 # Health check
-curl http://localhost:8000/health
+curl http://localhost:8000/api/v1/health
 
 # Upload contract
-curl -X POST -F "file=@contract.pdf" http://localhost:8000/upload
+curl -X POST -F "file=@contract.pdf" http://localhost:8000/api/v1/upload
 
 # Start analysis
-curl -X POST http://localhost:8000/analysis/start -H "Content-Type: application/json" -d '{"file_id":"{file_id}"}'
+curl -X POST http://localhost:8000/api/v1/analysis/start -H "Content-Type: application/json" -d '{"file_id":"{file_id}"}'
 
 # Check status
-curl http://localhost:8000/analysis/{analysis_id}/status
+curl http://localhost:8000/api/v1/analysis/{analysis_id}/status
 
 # Results (and follow report_paths to download)
-curl http://localhost:8000/analysis/{analysis_id}/results
+curl http://localhost:8000/api/v1/analysis/{analysis_id}/results
+
+# Rebuild regulations (async)
+curl -X POST "http://localhost:8000/api/v1/regulations/rebuild/async?force=false"
+
+# Task status
+curl http://localhost:8000/api/v1/tasks/{task_id}
 ```
 
 ## Development

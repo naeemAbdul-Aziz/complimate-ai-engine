@@ -11,6 +11,10 @@ import uuid
 from pathlib import Path
 from typing import Dict, Any, Optional
 from fastapi import UploadFile
+from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy import select
+
+from api.models.db_models import UploadedFile
 
 from config import settings
 from utils import (
@@ -32,7 +36,7 @@ class FileService(LoggerMixin):
         # Ensure upload directory exists
         settings.UPLOADS_DIR.mkdir(exist_ok=True, parents=True)
     
-    async def upload_file(self, file: UploadFile) -> Dict[str, Any]:
+    async def upload_file(self, file: UploadFile, session: AsyncSession) -> Dict[str, Any]:
         """
         Upload and validate a contract file.
         
@@ -79,15 +83,30 @@ class FileService(LoggerMixin):
             }
             
             self.uploaded_files[file_id] = upload_record
-            
+
+            # Persist to DB
+            try:
+                db_row = UploadedFile(
+                    file_id=file_id,
+                    original_filename=file.filename,
+                    stored_filename=unique_filename,
+                    file_path=str(file_path),
+                    file_size=file_info["size"],
+                    content_type=file.content_type or None,
+                )
+                session.add(db_row)
+                await session.commit()
+            except Exception as db_err:
+                self.logger.warning(f"Failed to persist upload record {file_id} to DB: {db_err}")
+
             self.logger.info(f"File uploaded successfully: {file.filename} -> {file_id}")
-            
+
             return {
                 "message": "File uploaded successfully",
                 "filename": file.filename,
                 "file_id": file_id,
                 "file_path": str(file_path),
-                "file_size": file_info["size"]
+                "file_size": file_info["size"],
             }
             
         except FileValidationError:
@@ -96,7 +115,25 @@ class FileService(LoggerMixin):
             self.logger.error(f"Error uploading file {file.filename}: {e}")
             raise FileValidationError(f"Upload failed: {e}")
     
-    def get_file_info(self, file_id: str) -> Optional[Dict[str, Any]]:
+    async def _get_file_info_db(self, file_id: str, session: AsyncSession) -> Optional[Dict[str, Any]]:
+        """Lookup file metadata from DB when not present in memory."""
+        try:
+            row = await session.get(UploadedFile, file_id)
+            if row:
+                return {
+                    "file_id": row.file_id,
+                    "original_filename": row.original_filename,
+                    "stored_filename": row.stored_filename,
+                    "file_path": row.file_path,
+                    "file_size": row.file_size,
+                    "content_type": row.content_type,
+                    "uploaded_at": row.uploaded_at.timestamp(),
+                }
+        except Exception as e:
+            self.logger.warning(f"DB lookup for file_id {file_id} failed: {e}")
+        return None
+
+    async def get_file_info(self, file_id: str, session: Optional[AsyncSession] = None) -> Optional[Dict[str, Any]]:
         """
         Get information about an uploaded file.
         
@@ -106,7 +143,16 @@ class FileService(LoggerMixin):
         Returns:
             File information dictionary or None if not found
         """
-        return self.uploaded_files.get(file_id)
+        info = self.uploaded_files.get(file_id)
+        if info:
+            return info
+        if session is not None:
+            db_info = await self._get_file_info_db(file_id, session)
+            if db_info:
+                # Populate in-memory cache for subsequent lookups
+                self.uploaded_files[file_id] = db_info
+                return db_info
+        return None
     
     def get_file_path(self, file_id: str) -> Optional[str]:
         """

@@ -109,7 +109,7 @@ class AnalysisErrorPayload(BaseModel):
 class ContractUploadResponse(BaseModel):
     """Response model for file upload."""
     message: str = Field(..., description="Success message")
-    filename: str = Field(..., description="Original filename")
+    file_name: str = Field(..., description="Original filename")
     file_id: str = Field(..., description="Unique file identifier")
     file_path: str = Field(..., description="Stored file path")
     file_size: Optional[int] = Field(None, description="File size in bytes")
@@ -119,7 +119,7 @@ class ContractUploadResponse(BaseModel):
         json_schema_extra = {
             "example": {
                 "message": "File uploaded successfully",
-                "filename": "contract.pdf",
+                "file_name": "contract.pdf",
                 "file_id": "123e4567-e89b-12d3-a456-426614174000",
                 "file_path": "/uploads/123e4567-e89b-12d3-a456-426614174000.pdf",
                 "file_size": 1024000,

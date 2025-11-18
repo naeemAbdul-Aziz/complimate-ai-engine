@@ -1,10 +1,41 @@
 services:
+  redis:
+    image: redis:7-alpine
+    command: redis-server --save 60 1 --loglevel warning
+    ports:
+      - "6379:6379"
   app:
     build: .
     ports:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      ENABLE_CELERY: "True"
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      VECTOR_DB_PROVIDER: ${VECTOR_DB_PROVIDER:-chroma}
     volumes:
-      - ./data/regulations:/app/data/regulations:ro
+      - ./data/regulations:/app/data/regulations
       - ./vector_store:/app/vector_store
+      - ./sql_app.db:/app/sql_app.db
+      - ./uploads:/app/uploads
+  worker:
+    build: .
+    env_file:
+      - .env
+    environment:
+      ENABLE_CELERY: "True"
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      VECTOR_DB_PROVIDER: ${VECTOR_DB_PROVIDER:-chroma}
+    depends_on:
+      - app
+      - redis
+    command: celery -A tasks.celery_app.celery_app worker -l info -Q rag,default --hostname=rag@%h
+    volumes:
+      - ./data/regulations:/app/data/regulations
+      - ./vector_store:/app/vector_store
+      - ./uploads:/app/uploads

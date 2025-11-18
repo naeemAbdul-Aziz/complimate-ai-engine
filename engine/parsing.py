@@ -1,44 +1,53 @@
 import os
 import logging
-from llama_index.core import SimpleDirectoryReader
-from llama_index.core.node_parser import SimpleNodeParser  # CHANGED
-from config.settings import settings as app_settings  # ADDED
+from typing import Iterable
+from pypdf import PdfReader
+from llama_index.core.schema import Document
+from llama_index.core.node_parser import SimpleNodeParser
+from config.settings import settings as app_settings
 
-# ─── Logger Setup ─────────────────────────────────────────────────────────────
 # Use standard logging setup, as main.py configures the root logger
 logger = logging.getLogger(__name__)
 
-# ─── Parsing & Metadata ────────────────────────────────────────────────────────
-
-def parse_contract(file_path: str):
+def parse_contract(file_path: str) -> Iterable:
     """
-    Parses a contract PDF into nodes using SimpleNodeParser for chunking.
+    Parses a contract PDF into nodes using a memory-efficient, page-by-page
+    streaming approach with SimpleNodeParser for chunking.
     """
     if not os.path.exists(file_path):
         logger.error("File not found: %s", file_path)
         raise FileNotFoundError(f"File not found: {file_path}")
 
-    logger.info("Loading contract document: %s", file_path)
-    reader = SimpleDirectoryReader(input_files=[file_path])
-    documents = reader.load_data()
-
-    if not documents:
-        logger.error("No document data found in %s.", file_path)
-        # Return empty list to be handled by the caller
-        return []
-
-    logger.info("Contract document loaded successfully.")
+    logger.info("Loading contract document via streaming: %s", file_path)
     
-    # CHANGED: Use SimpleNodeParser with settings from config
-    parser = SimpleNodeParser.from_defaults(
-        chunk_size=app_settings.CHUNK_SIZE,
-        chunk_overlap=app_settings.CHUNK_OVERLAP
-    )
-    
-    nodes = parser.get_nodes_from_documents(documents)
+    all_nodes = []
+    try:
+        reader = PdfReader(file_path)
+        parser = SimpleNodeParser.from_defaults(
+            chunk_size=app_settings.CHUNK_SIZE,
+            chunk_overlap=app_settings.CHUNK_OVERLAP
+        )
 
-    logger.info("Contract parsed into %d nodes.", len(nodes))
-    return nodes
+        for i, page in enumerate(reader.pages):
+            page_text = page.extract_text()
+            if not page_text or page_text.isspace():
+                continue
+
+            page_doc = Document(
+                text=page_text,
+                metadata={"page_label": str(i + 1), "file_name": os.path.basename(file_path)}
+            )
+            nodes = parser.get_nodes_from_documents([page_doc])
+            all_nodes.extend(nodes)
+            logger.debug(f"Parsed page {i+1} into {len(nodes)} nodes.")
+
+    except Exception as e:
+        logger.exception(f"Failed to parse document {file_path}: {e}")
+        # Return what has been parsed so far, or an empty list
+        return all_nodes
+
+    logger.info("Contract parsed into %d nodes.", len(all_nodes))
+    return all_nodes
 
 
 def extract_metadata(nodes):
@@ -50,18 +59,3 @@ def extract_metadata(nodes):
         for key, value in node.metadata.items():
             metadata.setdefault(key, []).append(value)
     return metadata
-
-
-# ─── Example Usage ─────────────────────────────────────────────────────────────
-# if __name__ == "__main__":
-    # Already configured via setup_logger()
-    try:
-        nodes = parse_contract("../data/contracts/sample.pdf")
-        for i, node in enumerate(nodes, 1):
-            logger.info("Node %d content:\n%s", i, node.get_content())
-            logger.info("Node %d metadata: %s", i, node.metadata)
-        meta = extract_metadata(nodes)
-        logger.info("Aggregated metadata: %s", meta)
-    except Exception as e:
-        logger.exception("An error occurred while parsing the contract")
-        

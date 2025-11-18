@@ -254,6 +254,44 @@ This release focuses on reliability, cost/perf via caching, safer prompting, and
 
 ---
 ### [2.0.3+] - Reporting Phase 1 Enhancements
+## [2.0.4] - 2025-11-16
+
+### 🔄 Background Processing & Vector DB Provider Abstraction
+
+#### Celery Integration (P1)
+* Added dedicated Celery worker service in `docker-compose.yml` (queues: `rag,default`).
+* Introduced `/api/v1/regulations/rebuild/async` endpoint to schedule regulation index rebuilds without blocking API thread.
+* Added `/api/v1/tasks/{task_id}` endpoint to query asynchronous task status (state + optional result).
+* Dockerfile now copies `tasks/` into the image to support running a worker from the same artifact.
+* README & docs updated to clarify Redis is used as broker/result backend; RabbitMQ not required.
+
+#### Vector Store Provider (P2)
+* Implemented `engine/vector_store/provider.py` abstraction to select between `chroma` (persistent local) and `pinecone` (serverless) based on `VECTOR_DB_PROVIDER`.
+* Added Pinecone v4 serverless support (index auto-create using cloud/region env vars).
+* Graceful fallback to Chroma when Pinecone API key or index creation fails.
+
+#### Regulation Search Endpoint
+* Added `/api/v1/regulations/search` for semantic search across indexed chunks with optional category filter & configurable result limit.
+
+### 🛠 Documentation & Health Updates
+* Prefixed all documented endpoints with `/api/v1` for consistency.
+* Root API index now enumerates new endpoints (async rebuild, search, task status).
+* Healthcheck in Dockerfile updated to hit `/api/v1/health`.
+* Troubleshooting guide clarified Celery/Redis setup and removed RabbitMQ ambiguity.
+
+### 📦 Configuration Additions
+* New env vars: `ENABLE_CELERY`, `VECTOR_DB_PROVIDER`, `PINECONE_API_KEY`, `PINECONE_CLOUD`, `PINECONE_REGION`, `PINECONE_INDEX_NAME`, `PINECONE_NAMESPACE`.
+
+### ✅ Tests
+* Added unit tests for vector store provider fallback behavior and regulation search edge cases (empty index, zero limit boundary).
+
+### 📌 Next Focus (Phase 2 Continuation)
+* Caching extracted regulation text and search results with invalidation on rebuild.
+* Pagination & hybrid search toggle for `/regulations/search`.
+* Parsing optimization (parallel page parsing, selective OCR if needed).
+* Expanded observability: metrics & tracing for task execution times.
+
+---
 
 - Removed group-level "Regulation:" headers from grouped reports; a single per-item "Regulation Ref" is rendered directly under each Issue.
 - Added Executive Summary and MRIA sections (TXT/PDF) controlled by flags: REPORT_ENHANCED_MODE, INCLUDE_EXEC_SUMMARY, INCLUDE_MRIA.

@@ -63,6 +63,7 @@ COPY engine ./engine
 COPY config ./config
 COPY reporting ./reporting
 COPY utils ./utils
+COPY tasks ./tasks
 
 # Create and set permissions for runtime directories
 # These directories will be used for logs, uploads, reports, and the vector store
@@ -77,12 +78,12 @@ EXPOSE 8000
 
 # Healthcheck to verify the API is responsive
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD python -c "import urllib.request, sys; \
-    try: \
-        r = urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3); \
-        sys.exit(0 if r.status == 200 else 1); \
-    except Exception: \
-        sys.exit(1)"
+    CMD python -c "import urllib.request, sys; \
+        try: \
+                r = urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3); \
+                sys.exit(0 if r.status == 200 else 1); \
+        except Exception: \
+                sys.exit(1)"
 
 # Entrypoint command to run the Uvicorn server
 CMD ["python", "-m", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
