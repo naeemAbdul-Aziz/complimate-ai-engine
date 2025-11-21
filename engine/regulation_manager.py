@@ -29,6 +29,7 @@ from pypdf import PdfReader
 
 from config import settings
 from utils import LoggerMixin
+from utils.pdf_utils import extract_pdf_text
 from engine.vector_store.provider import VectorStoreProvider
 
 
@@ -211,17 +212,18 @@ class RegulationManager(LoggerMixin):
         return hash_md5.hexdigest()
     
     def _extract_pdf_text(self, file_path: Path) -> str:
-        """Extract text from PDF file."""
+        """Extract text from PDF with OCR support for scanned documents."""
         try:
-            text = ""
-            with open(file_path, "rb") as file:
-                reader = PdfReader(file)
-                for page in reader.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text += page_text + "\\n"
-            
-            return text.strip()
+            # Use the OCR-enabled extraction from utils/pdf_utils.py
+            text = extract_pdf_text(
+                file_path,
+                enable_ocr=getattr(settings, "ENABLE_PDF_OCR", True),
+                ocr_lang=getattr(settings, "OCR_LANG", "eng"),
+                min_alpha_ratio=getattr(settings, "PDF_TEXT_MIN_ALPHA_RATIO", 0.2),
+                min_line_len=getattr(settings, "PDF_FILTER_MIN_LINE_LEN", 12),
+                logger=self.logger,
+            )
+            return text.strip() if text else ""
             
         except Exception as e:
             self.logger.error(f"Failed to extract text from {file_path}: {e}")
@@ -249,13 +251,14 @@ class RegulationManager(LoggerMixin):
         return metadata
     
     def discover_regulation_files(self) -> List[Path]:
-        """Discover all regulation files in the regulations directory."""
+        """Discover all regulation files recursively in the regulations directory."""
         if not settings.REGULATIONS_DIR.exists():
             self.logger.warning(f"Regulations directory not found: {settings.REGULATIONS_DIR}")
             return []
         
         regulation_files = []
-        for file_path in settings.REGULATIONS_DIR.glob("*.pdf"):
+        # Use rglob to search recursively in subdirectories
+        for file_path in settings.REGULATIONS_DIR.rglob("*.pdf"):
             if file_path.is_file():
                 regulation_files.append(file_path)
         
@@ -358,10 +361,16 @@ class RegulationManager(LoggerMixin):
             # Convert nodes back to documents
             documents = []
             for i, node in enumerate(nodes):
+                doc_id = f"{main_doc.doc_id}_chunk_{i}"
+                # Explicitly add IDs to metadata so they appear in the vector store
+                node_metadata = node.metadata.copy()
+                node_metadata["doc_id"] = doc_id
+                node_metadata["document_id"] = main_doc.doc_id
+                
                 doc = Document(
                     text=node.get_content(),
-                    doc_id=f"{main_doc.doc_id}_chunk_{i}",
-                    metadata=node.metadata
+                    doc_id=doc_id,
+                    metadata=node_metadata
                 )
                 documents.append(doc)
             

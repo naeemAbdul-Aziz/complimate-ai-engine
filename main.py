@@ -3,6 +3,7 @@ import os
 import time
 import asyncio
 import logging # Import logging
+from engine.regulation_manager import RegulationManager
 import datetime # For report naming
 from dotenv import load_dotenv
 from llama_index.core import VectorStoreIndex, Document, Settings
@@ -81,7 +82,7 @@ def load_regulation(file_path):
                 try:
                     page_text = page.extract_text()
                     if page_text:
-                        text += page_text + "\\n"
+                        text += page_text + "\n"
                         pages_processed += 1
                     else:
                         logger.warning(f"No text extracted from page {i+1} of {file_path}")
@@ -120,11 +121,6 @@ async def main():
     logger.info("=== Starting Contract Compliance Analysis ===")
 
     try:
-        # Validate environment configuration (allow stub free mode)
-        if not openai_api_key:
-            logger.critical("OPENAI_API_KEY not configured. Cannot run analysis.")
-            return False
-
         # Ensure output directory exists with proper error handling
         if not os.path.exists(REPORTS_FOLDER):
             try:
@@ -151,55 +147,34 @@ async def main():
             logger.critical(f"Failed to initialize OpenAI models: {e}")
             return False
 
-        # Load and process regulation documents
-        logger.info("Loading regulation documents...")
-        regulation_text = load_regulation(REGULATION_FILE)
-        if not regulation_text:
-            logger.critical("Failed to load regulation text - cannot proceed with analysis")
-            return False
-
-        # Create regulation index with error handling
-        logger.info("Creating regulation index...")
-        index_start = time.time()
+        # Load regulation index (Offline Indexing Architecture)
+        logger.info("Loading regulation index...")
+        reg_manager = RegulationManager()
         
-        try:
-            regulation_document = Document(text=regulation_text, doc_id=REGULATION_FILE)
-            regulation_index = VectorStoreIndex.from_documents([regulation_document])
-            
-            index_duration = time.time() - index_start
-            log_performance("regulation_index_creation", index_duration, True)
-            logger.info("Regulation index created successfully")
-            
-        except Exception as e:
-            index_duration = time.time() - index_start
-            log_performance("regulation_index_creation", index_duration, False, {"error": str(e)})
-            logger.critical(f"Failed to create regulation index: {e}")
+        # Try to load the index. We do NOT auto-rebuild here to prevent startup delays.
+        regulation_index = reg_manager.get_regulation_index(auto_rebuild=False)
+        
+        if not regulation_index:
+            logger.critical("Failed to load regulation index.")
+            logger.critical("Please run 'python scripts/ingest_regulations.py' to build the index first.")
             return False
+            
+        logger.info("Regulation index loaded successfully.")
 
-        # Discover and validate contract files
-        try:
-            if not os.path.exists(CONTRACT_FOLDER):
-                logger.critical(f"Contract folder does not exist: {CONTRACT_FOLDER}")
-                return False
-                
-            contract_files = [f for f in os.listdir(CONTRACT_FOLDER) 
-                            if f.lower().endswith((".pdf", ".txt", ".docx"))]
-            
-            if not contract_files:
-                logger.warning(f"No contract files found in {CONTRACT_FOLDER}")
-                logger.info("Please add contract files (.pdf, .txt, .docx) to the contracts folder")
-                return False
-                
-            logger.info(f"Found {len(contract_files)} contract(s) to process: {contract_files}")
-            
-        except PermissionError:
-            logger.critical(f"Permission denied accessing contract folder: {CONTRACT_FOLDER}")
+        # Discover contract files
+        if not os.path.exists(CONTRACT_FOLDER):
+            logger.critical(f"Contract folder not found: {CONTRACT_FOLDER}")
             return False
-        except Exception as e:
-            logger.critical(f"Error accessing contract files: {e}")
-            return False
+            
+        contract_files = [f for f in os.listdir(CONTRACT_FOLDER) if f.lower().endswith(('.pdf', '.txt'))]
+        
+        if not contract_files:
+            logger.warning(f"No supported contract files (PDF/TXT) found in {CONTRACT_FOLDER}")
+            return True
 
-        # --- Analysis Loop for Each Contract ---
+        logger.info(f"Found {len(contract_files)} contract(s) to process.")
+
+        # Process each contract
         for contract_file_name in contract_files:
             contract_file_path = os.path.join(CONTRACT_FOLDER, contract_file_name)
             logger.info(f"--- Processing contract: {contract_file_path} ---")

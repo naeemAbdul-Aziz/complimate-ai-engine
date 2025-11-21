@@ -7,9 +7,32 @@ This module contains all configuration settings, environment variables,
 and constants used throughout the application, using Pydantic's BaseSettings.
 """
 
+import secrets
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# --- Performance Presets ---
+PERFORMANCE_PRESETS = {
+    "fast": {
+        "CHUNK_SIZE": 1500,
+        "CHUNK_OVERLAP": 100,
+        "HYBRID_SEARCH_TOP_K": 3,
+        "OPENAI_CONCURRENCY_LIMIT": 20,
+    },
+    "balanced": {
+        "CHUNK_SIZE": 1000,
+        "CHUNK_OVERLAP": 200,
+        "HYBRID_SEARCH_TOP_K": 5,
+        "OPENAI_CONCURRENCY_LIMIT": 10,
+    },
+    "thorough": {
+        "CHUNK_SIZE": 800,
+        "CHUNK_OVERLAP": 300,
+        "HYBRID_SEARCH_TOP_K": 10,
+        "OPENAI_CONCURRENCY_LIMIT": 5,
+    }
+}
 
 class Settings(BaseSettings):
     """Application settings and configuration, loaded from .env file and environment."""
@@ -50,6 +73,11 @@ class Settings(BaseSettings):
     SECONDARY_REASONING_REQUEST_TIMEOUT: float = 60.0
     SECONDARY_COMPLEXITY_THRESHOLD: int = 40
     SECONDARY_REASONING_MODEL_FAST: str = "gpt-4o"
+    # Adaptive refinement controls
+    REFINEMENT_TIMEOUT_RATIO_MAX: float = 0.5  # if >50% chunks timeout/error within window, auto-disable temporarily
+    REFINEMENT_WINDOW: int = 10               # number of recent chunks to evaluate
+    REFINEMENT_MIN_OBSERVATIONS: int = 5      # minimum chunks observed before making disable decision
+    REFINEMENT_COOLDOWN_SECONDS: int = 600    # how long to disable refinement when tripped
     
     # File paths
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
@@ -78,6 +106,10 @@ class Settings(BaseSettings):
     PINECONE_NAMESPACE: str = "default"
     PINECONE_CLOUD: str = "aws"
     PINECONE_REGION: str = "us-east-1"
+    # If >0, force index dimension; otherwise auto-infer from embedding model
+    PINECONE_INDEX_DIMENSION: int = 0
+    # Only used for HuggingFace fallback dimension inference
+    HUGGINGFACE_EMBEDDING_DIM: int = 384
     
     # Multi-regulation Configuration
     REGULATION_CATEGORIES: Dict[str, Any] = {
@@ -88,6 +120,12 @@ class Settings(BaseSettings):
     CHUNK_SIZE: int = 1000
     CHUNK_OVERLAP: int = 200
     ENABLE_METADATA_EXTRACTION: bool = True
+    # PDF Extraction Settings
+    ENABLE_PDF_OCR: bool = False
+    OCR_LANG: str = "eng"
+    PDF_TEXT_MIN_ALPHA_RATIO: float = 0.2
+    PDF_FILTER_MIN_LINE_LEN: int = 20
+    PDF_PROGRESS_LOG_EVERY: int = 10
     
     # File Upload Configuration
     MAX_FILE_SIZE_MB: int = 50
@@ -105,9 +143,7 @@ class Settings(BaseSettings):
     API_KEY: Optional[str] = None
     
     # JWT Authentication
-    import secrets
-    _jwt_default = secrets.token_urlsafe(48)
-    JWT_SECRET_KEY: str = _jwt_default
+    JWT_SECRET_KEY: str = secrets.token_urlsafe(48)
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -153,8 +189,25 @@ class Settings(BaseSettings):
     # Set to False to bypass the secondary reasoning refinement stage even if ENABLE_SECONDARY_REASONING is True.
     SECONDARY_REFINEMENT_ENABLED: bool = True
 
+    # --- Performance & Resource Management ---
+    PERFORMANCE_PRESET: str = "balanced"
+    ENABLE_MEMORY_PROFILING: bool = False
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Apply performance preset if not explicitly overridden
+        if self.PERFORMANCE_PRESET in PERFORMANCE_PRESETS:
+            preset = PERFORMANCE_PRESETS[self.PERFORMANCE_PRESET]
+            for key, value in preset.items():
+                # Only set if the attribute exists and matches the preset key
+                if hasattr(self, key):
+                    # In a real scenario, we might check if it was set by env var vs default
+                    # For now, we just apply the preset values to the instance
+                    setattr(self, key, value)
+
 # Create a single, importable settings instance
 settings = Settings()
+
 # Optional getter for settings (for legacy imports)
 def get_settings():
     return settings

@@ -118,6 +118,49 @@ Logs default to `./logs` relative to repository root. Rotate/size configuration 
 
 ---
 
+## Secondary Refinement Auto-Disable
+
+### Symptom
+- Long runs with many "Refinement budget exhausted" or timeout warnings.
+- Logs show: "Secondary refinement unhealthy: high timeout/error ratio. Disabling for <seconds>s."
+
+### Cause
+Network/API slowness or quota pressure causes >50% of recent refinement chunks to time out or error.
+
+### Behavior
+The engine adaptively disables the secondary refinement stage for a cooldown window (`REFINEMENT_COOLDOWN_SECONDS`). Primary analysis continues.
+
+### Tuning
+- `REFINEMENT_TIMEOUT_RATIO_MAX` (default 0.5)
+- `REFINEMENT_WINDOW` (default 10)
+- `REFINEMENT_MIN_OBSERVATIONS` (default 5)
+- `REFINEMENT_COOLDOWN_SECONDS` (default 600)
+
+Lower the ratio to disable earlier; increase the window for smoother decisions.
+
+---
+
+## Pinecone Dimension Mismatch
+
+### Symptom
+Upserts fail or logs warn: existing index dimension differs from embedding dimension.
+
+### Cause
+Pinecone index was created with a different vector dimension than the current embedding model.
+
+### Resolution
+- If using OpenAI `text-embedding-3-large`: dimension is 3072.
+- If using OpenAI `text-embedding-3-small` or `ada`: dimension is 1536.
+- If using HF `all-MiniLM-L6-v2`: dimension is 384.
+
+Options:
+1. Recreate the index with the correct dimension, or
+2. Set `PINECONE_INDEX_DIMENSION` to explicitly match your embedding.
+
+The system now auto-infers a dimension when creating an index and warns on mismatches for existing indexes.
+
+---
+
 ## Background Jobs and Broker (Redis vs RabbitMQ)
 
 ### Symptom

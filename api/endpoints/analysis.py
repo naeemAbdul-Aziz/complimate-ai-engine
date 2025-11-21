@@ -1,3 +1,4 @@
+
 # api/endpoints/analysis.py
 """Analysis endpoints for starting and monitoring contract analyses."""
 from __future__ import annotations
@@ -20,6 +21,8 @@ from api.models.schemas import (
     AnalysisStatusResponse, # Using this for status AND results
     ErrorResponse, # Using this from context
     AnalysisStatus,
+    AnalysisResults,
+    ReportPaths,
 )
 from pydantic import BaseModel, Field
 
@@ -35,8 +38,24 @@ from api.endpoints.upload import get_file_service as get_shared_file_service
 from config.logger import get_component_logger
 logger = get_component_logger('api.endpoints.analysis')
 
+
 # --- Router ---
 router = APIRouter() # Prefix and tags are applied in api/main.py
+
+# --- Regulation Index Summary Endpoint ---
+from engine.regulation_manager import RegulationManager
+
+@router.get("/regulations/summary", response_model=dict)
+def regulations_summary():
+    """Get summary of indexed and pending regulations."""
+    mgr = RegulationManager()
+    info = mgr.get_regulations_info()
+    # Add pending files info
+    all_files = set([f.name for f in mgr.discover_regulation_files()])
+    indexed_files = set(mgr.regulations_metadata.keys())
+    pending_files = list(all_files - indexed_files)
+    info["pending_files"] = pending_files
+    return info
 
 # --- Dependency Injection for Services ---
 _analysis_service_instance: Optional[AnalysisService] = None
@@ -169,7 +188,19 @@ async def get_analysis_status_endpoint(
         raise HTTPException(status_code=404, detail="Analysis ID not found")
 
     logger.debug(f"Found analysis {analysis_id} with status: {analysis.status}")
-    return analysis
+    
+    # Map DB model to Response model explicitly to handle id -> analysis_id mismatch
+    return AnalysisStatusResponse(
+        analysis_id=str(analysis.id),
+        status=analysis.status,
+        progress=analysis.progress,
+        started_at=analysis.started_at,
+        estimated_completion=None,
+        completed_at=analysis.completed_at,
+        results=AnalysisResults(**analysis.results) if analysis.results else None,
+        report_paths=ReportPaths(**analysis.report_paths) if analysis.report_paths else None,
+        error=analysis.error
+    )
 
 
 @router.get("/{analysis_id}/results", response_model=AnalysisStatusResponse, responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}})
@@ -200,7 +231,18 @@ async def get_analysis_results_endpoint(
             raise HTTPException(status_code=404, detail="Analysis not found")
 
     logger.debug(f"Returning results for completed/failed analysis {analysis_id}")
-    return analysis
+    
+    return AnalysisStatusResponse(
+        analysis_id=str(analysis.id),
+        status=analysis.status,
+        progress=analysis.progress,
+        started_at=analysis.started_at,
+        estimated_completion=None,
+        completed_at=analysis.completed_at,
+        results=AnalysisResults(**analysis.results) if analysis.results else None,
+        report_paths=ReportPaths(**analysis.report_paths) if analysis.report_paths else None,
+        error=analysis.error
+    )
 
 @router.get("/", response_model=List[AnalysisStatusResponse])
 async def list_analyses_endpoint(
@@ -213,4 +255,17 @@ async def list_analyses_endpoint(
     logger.debug("Requesting list of all analyses")
     analyses: List[Analysis] = await analysis_service.list_analyses(session)
     logger.info(f"Returning {len(analyses)} analysis records.")
-    return analyses
+    
+    return [
+        AnalysisStatusResponse(
+            analysis_id=str(a.id),
+            status=a.status,
+            progress=a.progress,
+            started_at=a.started_at,
+            estimated_completion=None,
+            completed_at=a.completed_at,
+            results=AnalysisResults(**a.results) if a.results else None,
+            report_paths=ReportPaths(**a.report_paths) if a.report_paths else None,
+            error=a.error
+        ) for a in analyses
+    ]
