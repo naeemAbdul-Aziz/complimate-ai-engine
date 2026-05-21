@@ -20,7 +20,7 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
 - Non-root runtime user.
 
 ```bash
-docker build -t complimate-ai-engine:latest /home/runner/work/complimate-ai-engine/complimate-ai-engine
+docker build -t complimate-ai-engine:latest .
 docker run --rm -p 8000:8000 --env-file .env complimate-ai-engine:latest
 ```
 
@@ -30,7 +30,7 @@ docker run --rm -p 8000:8000 --env-file .env complimate-ai-engine:latest
 - Async analysis/indexing can run through Celery.
 
 ```bash
-docker compose -f /home/runner/work/complimate-ai-engine/complimate-ai-engine/docker-compose.yml up --build
+docker compose -f ./docker-compose.yml up --build
 ```
 
 ---
@@ -156,4 +156,3 @@ For container deployment, mount persistent volumes for all required state direct
 - Disable docs endpoints in strict production profiles if required.
 - Enforce auth controls and API key policy appropriate to threat model.
 - Use TLS termination at ingress/load-balancer layer.
-

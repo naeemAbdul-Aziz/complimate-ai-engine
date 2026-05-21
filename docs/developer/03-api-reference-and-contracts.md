@@ -13,8 +13,7 @@
 - Analysis prefix: `/api/v1/analysis`
 - Regulation prefix: `/api/v1/regulations`
 - Task prefix: `/api/v1/tasks`
-- WebSocket router mounted at `/ws` with route `/ws/analysis/{analysis_id}` resulting in effective path:  
-  `ws://<host>:8000/ws/ws/analysis/{analysis_id}` (current implementation path composition).
+- WebSocket endpoint: `ws://<host>:8000/ws/analysis/{analysis_id}`
 
 ---
 
@@ -253,8 +252,8 @@ Response: `List[AuditLog]`
 
 ## Endpoint
 
-Current effective route:
-- `ws://<host>:8000/ws/ws/analysis/{analysis_id}`
+Current route:
+- `ws://<host>:8000/ws/analysis/{analysis_id}`
 
 Optional auth gate:
 - If `REQUIRE_API_KEY=True`:
@@ -296,4 +295,3 @@ Interim integration options:
 - Poll analysis status endpoint.
 - Subscribe to WebSocket progress stream.
 - Poll Celery task status for async index jobs.
-

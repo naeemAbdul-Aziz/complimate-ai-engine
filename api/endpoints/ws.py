@@ -45,7 +45,7 @@ async def _simulate_progress(analysis_id: str) -> None:
     )
     await manager.broadcast(analysis_id, complete)
 
-@router.websocket("/ws/analysis/{analysis_id}")
+@router.websocket("/analysis/{analysis_id}")
 async def analysis_progress_ws(websocket: WebSocket, analysis_id: str, api_key: str | None = None):
     if not settings.ENABLE_WEBSOCKETS:
         await websocket.close(code=4000)
