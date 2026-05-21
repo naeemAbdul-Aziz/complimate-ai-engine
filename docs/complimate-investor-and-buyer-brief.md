@@ -4,6 +4,22 @@ This document provides a complete view for both technical and business stakehold
 
 ---
 
+## 0) Puma Positioning Narrative (Recommended)
+
+- We intentionally avoid overengineering and focus on production-relevant reliability.
+- The current architecture is pragmatic and industry-standard for an applied vertical AI product: FastAPI, hybrid retrieval, two-phase reasoning, bounded retries/timeouts, caching, circuit-breaker behavior, Dockerized deployment, and async/background processing.
+- We optimize using measured bottlenecks and pilot evidence, not infrastructure hype.
+- Positioning language should be: "designed for enterprise deployment requirements" rather than "fully enterprise-complete."
+- Avoid framing that implies unnecessary rewrites (e.g., Rust migration, microservices, Kubernetes) without clear customer-driven need.
+
+### Messaging Guardrails
+
+- Prefer: internal benchmark, pilot-stage performance, production-credible architecture.
+- Avoid: unconditional claims that are not yet externally validated.
+- Keep the wedge clear: Ghana petroleum compliance first; adjacent sectors are roadmap expansion.
+
+---
+
 ## 1) Executive Summary
 
 ### Technical
@@ -15,7 +31,7 @@ This document provides a complete view for both technical and business stakehold
 ### Marketing
 - Reduce contract review from days to minutes; fewer penalties and rework; faster approvals.
 - Differentiated by deep focus on Ghana petroleum vs. generic contract AI.
-- Clear ROI: time saved, higher accuracy, audit-ready documentation.
+- ROI is evaluated through pilot outcomes: time saved, improved review consistency, and audit-ready documentation.
 
 ### Bridge
 - Engineering decisions (two‑phase reasoning, hybrid retrieval) directly reduce noise and increase precision—faster, trusted outcomes.
@@ -173,6 +189,7 @@ This document provides a complete view for both technical and business stakehold
 ### Technical
 - 90‑day pilot: deploy, ingest, validate, iterate prompts, measure, go‑live.
 - KPIs: precision/recall, time‑to‑insight, violation reduction, user satisfaction.
+- Evidence package before scaling claims: p50/p95 latency, cache hit rate, failure/retry rates by stage, pilot precision review, and cost per contract.
 
 ### Marketing
 - White‑glove onboarding; QBRs; expansion playbooks.
@@ -197,7 +214,7 @@ This document provides a complete view for both technical and business stakehold
 
 - Can it run offline? Yes—supports fully offline analysis; private endpoints on roadmap.
 - How do you ensure accuracy? Domain‑tuned retrieval + two‑phase reasoning + explainable outputs.
-- What’s the ROI? Review time: hours → minutes; fewer penalties; faster approvals.
+- What’s the ROI? Pilot programs measure review-time reduction, consistency improvements, and avoided rework before broad scaling.
 - How secure is it? Non‑root Docker, env‑based secrets, no training on customer data; SOC2/ISO roadmap.
 - How does it scale? Async batching, horizontal workers; Chroma scales with datasets.
 
@@ -246,5 +263,5 @@ This document provides a complete view for both technical and business stakehold
 ## TL;DR
 
 - CompliMate is a petroleum‑focused compliance AI with superior precision from two‑phase reasoning and hybrid retrieval.
-- Deployable anywhere (incl. offline), explainable results, and enterprise‑grade security posture.
-- Clear ROI: faster reviews, fewer penalties, and scalable compliance. Pilot in 90 days to prove value.
+- Deployable anywhere (incl. offline), explainable results, and a production-credible security posture with a clear hardening roadmap.
+- Clear next step: pilot-backed measurement and selective hardening (audit trails, RBAC, API auth defaults, runbooks) before broader enterprise rollout.
