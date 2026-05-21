@@ -310,6 +310,7 @@ For more about **CompliMate**, see our landing page - complighana.com
 ## Docs
 
 - Investor & Buyer Brief: docs/complimate-investor-and-buyer-brief.md
+- Developer Manual (end-to-end): docs/developer/README.md
 
 ---
 
