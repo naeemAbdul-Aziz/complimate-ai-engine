@@ -42,7 +42,7 @@ to parse contracts and flag compliance risks efficiently.
 - **Contract Parsing:** Advanced PDF and DOCX contract clause extraction
 - **Compliance Analysis:** Hybrid search (BM25 + embeddings) + GPT for precise regulation matching
 - **(Petroleum Focus)** Currently indexed: LI 2204 (additional categories reserved for future phases)
-- **Performance:** Analyzes contracts in **<5 minutes**, catching **85%+ risks** (internal testing)
+- **Performance:** Typical pilot-stage analysis completes in minutes; internal benchmarks indicate strong risk-detection potential.
 
 ### v2.0 Enhancements
 - **Persistent Vector Storage:** ChromaDB with automatic persistence and fallback capabilities
@@ -52,7 +52,7 @@ to parse contracts and flag compliance risks efficiently.
 - **Robust Error Handling:** Graceful fallbacks and comprehensive logging
 
 ### Scalability & Security
-- **Scalability:** Processes **100 contracts/hour** (internal benchmark)
+- **Scalability:** Designed for high-throughput processing with horizontal worker scaling; internal benchmarks are environment-dependent.
 - **Security:** Fully supports **offline operation** for sensitive data protection
 - **Reliability:** Multiple storage backends with automatic failover
 
@@ -310,6 +310,7 @@ For more about **CompliMate**, see our landing page - complighana.com
 ## Docs
 
 - Investor & Buyer Brief: docs/complimate-investor-and-buyer-brief.md
+- Developer Manual (end-to-end): docs/developer/README.md
 
 ---
 
