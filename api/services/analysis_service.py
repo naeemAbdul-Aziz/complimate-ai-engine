@@ -458,6 +458,30 @@ class AnalysisService:
             "successful_responses": successful_responses,
             "failed_responses": failed_responses,
             "potential_issues_found": len(violations),
+            "violations": violations,
+        }
+
+    async def _generate_reports(self, analysis_id: str, report_data: dict) -> dict:
+        """Generate all report formats asynchronously."""
+        contract_name = report_data.get('contract_name', 'Unknown')
+        
+        if hasattr(settings, 'REPORTS_DIR'):
+            settings.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+            report_dir = settings.REPORTS_DIR
+        else:
+            report_dir = Path("reports")
+            report_dir.mkdir(parents=True, exist_ok=True)
+
+        report_paths_abs = {
+            "json": report_dir / generate_report_filename(contract_name, "json"),
+            "txt": report_dir / generate_report_filename(contract_name, "txt"),
+            "pdf": report_dir / generate_report_filename(contract_name, "pdf")
+        }
+
+        try:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, generate_report, report_data, str(report_paths_abs["json"]))
+            self.logger.debug(f"[{analysis_id}] JSON report generated.")
             await loop.run_in_executor(None, generate_text_report, report_data, str(report_paths_abs["txt"]))
             self.logger.debug(f"[{analysis_id}] TXT report generated.")
             await loop.run_in_executor(None, generate_pdf_report, report_data, str(report_paths_abs["pdf"]))
