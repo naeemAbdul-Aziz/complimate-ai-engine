@@ -35,3 +35,13 @@ class SimpleCircuitBreaker:
                 self._open_until = 0.0
                 return False
             return True
+
+    def trip(self, cooldown_seconds: Optional[int] = None) -> None:
+        """Force-open the breaker for a cooldown window.
+
+        If cooldown_seconds is not provided, use self.reset_seconds.
+        """
+        with self._lock:
+            secs = int(cooldown_seconds or self.reset_seconds)
+            self._open_until = time.time() + max(1, secs)
+            self._fail_count = 0

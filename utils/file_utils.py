@@ -210,13 +210,12 @@ def ensure_directory_exists(directory: str) -> None:
         os.makedirs(directory, exist_ok=True)
         logger.debug(f"Directory ensured: {directory}")
     except Exception as e:
-        logger.error(f"Failed to create directory {directory}: {e}")
-        raise
+        logger.error(f"Failed to ensure directory {directory}: {e}")
 
 
-def list_files_by_pattern(directory: str, pattern: str = "*") -> List[str]:
+def find_files(directory: str, pattern: str) -> List[str]:
     """
-    List files in directory matching a pattern.
+    Find files matching a pattern in a directory.
     
     Args:
         directory: Directory to search
@@ -232,3 +231,57 @@ def list_files_by_pattern(directory: str, pattern: str = "*") -> List[str]:
     
     search_pattern = os.path.join(directory, pattern)
     return glob(search_pattern)
+
+
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitize a filename by removing invalid characters and normalizing spaces.
+    
+    Args:
+        filename: Original filename
+        
+    Returns:
+        Sanitized filename
+    """
+    import re
+    
+    # Remove extension if present
+    name = Path(filename).stem
+    
+    # Replace invalid characters with underscores
+    # Allow alphanumeric, hyphens, underscores, and spaces
+    clean_name = re.sub(r'[^\w\s-]', '', name)
+    
+    # Replace multiple spaces with single underscore
+    clean_name = re.sub(r'\s+', '_', clean_name)
+    
+    # Replace multiple underscores with single underscore
+    clean_name = re.sub(r'_+', '_', clean_name)
+    
+    # Strip leading/trailing underscores
+    clean_name = clean_name.strip('_')
+    
+    return clean_name
+
+
+def generate_report_filename(contract_name: str, report_type: str = "pdf") -> str:
+    """
+    Generate a branded, descriptive report filename.
+    
+    Format: CompliMate_Analysis_{Clean_Contract_Name}.{ext}
+    
+    Args:
+        contract_name: Original contract filename
+        report_type: Extension (pdf, json, txt)
+        
+    Returns:
+        Formatted filename
+    """
+    from datetime import datetime
+    
+    clean_name = sanitize_filename(contract_name)
+    
+    # Ensure report_type doesn't have a dot
+    ext = report_type.lstrip('.')
+    
+    return f"CompliMate_Analysis_{clean_name}.{ext}"

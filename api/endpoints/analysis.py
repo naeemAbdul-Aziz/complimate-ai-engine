@@ -1,8 +1,10 @@
+
 # api/endpoints/analysis.py
 """Analysis endpoints for starting and monitoring contract analyses."""
 from __future__ import annotations
 
 # --- Standard Imports ---
+import json
 from typing import List, Optional # Added Optional
 import uuid # Added for UUID validation
 
@@ -20,6 +22,8 @@ from api.models.schemas import (
     AnalysisStatusResponse, # Using this for status AND results
     ErrorResponse, # Using this from context
     AnalysisStatus,
+    AnalysisResults,
+    ReportPaths,
 )
 from pydantic import BaseModel, Field
 
@@ -35,8 +39,46 @@ from api.endpoints.upload import get_file_service as get_shared_file_service
 from config.logger import get_component_logger
 logger = get_component_logger('api.endpoints.analysis')
 
+
 # --- Router ---
 router = APIRouter() # Prefix and tags are applied in api/main.py
+
+def parse_results(val) -> Optional[AnalysisResults]:
+    if not val:
+        return None
+    try:
+        if isinstance(val, str):
+            val = json.loads(val)
+        return AnalysisResults.model_validate(val)
+    except Exception as e:
+        logger.error(f"Error parsing AnalysisResults: {e}")
+        return None
+
+def parse_report_paths(val) -> Optional[ReportPaths]:
+    if not val:
+        return None
+    try:
+        if isinstance(val, str):
+            val = json.loads(val)
+        return ReportPaths.model_validate(val)
+    except Exception as e:
+        logger.error(f"Error parsing ReportPaths: {e}")
+        return None
+
+# --- Regulation Index Summary Endpoint ---
+from engine.regulation_manager import RegulationManager
+
+@router.get("/regulations/summary", response_model=dict)
+def regulations_summary():
+    """Get summary of indexed and pending regulations."""
+    mgr = RegulationManager()
+    info = mgr.get_regulations_info()
+    # Add pending files info
+    all_files = set([f.name for f in mgr.discover_regulation_files()])
+    indexed_files = set(mgr.regulations_metadata.keys())
+    pending_files = list(all_files - indexed_files)
+    info["pending_files"] = pending_files
+    return info
 
 # --- Dependency Injection for Services ---
 _analysis_service_instance: Optional[AnalysisService] = None
@@ -162,14 +204,26 @@ async def get_analysis_status_endpoint(
         logger.warning(f"Invalid UUID format for analysis_id: {analysis_id}")
         raise HTTPException(status_code=400, detail="Invalid analysis ID format (must be UUID)")
 
-    analysis: Optional[Analysis] = await analysis_service.get_analysis_status(session, analysis_id)
+    analysis: Optional[Analysis] = await session.get(Analysis, uuid.UUID(analysis_id))
 
     if not analysis:
         logger.warning(f"Analysis ID not found in DB: {analysis_id}")
         raise HTTPException(status_code=404, detail="Analysis ID not found")
 
     logger.debug(f"Found analysis {analysis_id} with status: {analysis.status}")
-    return analysis
+    
+    # Map DB model to Response model explicitly to handle id -> analysis_id mismatch
+    return AnalysisStatusResponse(
+        analysis_id=str(analysis.id),
+        status=analysis.status,
+        progress=analysis.progress,
+        started_at=analysis.started_at,
+        estimated_completion=None,
+        completed_at=analysis.completed_at,
+        results=parse_results(analysis.results),
+        report_paths=parse_report_paths(analysis.report_paths),
+        error=analysis.error
+    )
 
 
 @router.get("/{analysis_id}/results", response_model=AnalysisStatusResponse, responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}})
@@ -188,19 +242,30 @@ async def get_analysis_results_endpoint(
         logger.warning(f"Invalid UUID format for analysis_id: {analysis_id}")
         raise HTTPException(status_code=400, detail="Invalid analysis ID format (must be UUID)")
 
-    analysis: Optional[Analysis] = await analysis_service.get_analysis_results(session, analysis_id)
+    # Query directly since AnalysisService.get_analysis_status is not available
+    analysis: Optional[Analysis] = await session.get(Analysis, uuid.UUID(analysis_id))
 
     if not analysis:
-        status_check = await analysis_service.get_analysis_status(session, analysis_id)
-        if status_check:
-            logger.warning(f"Analysis {analysis_id} found but not yet completed (status: {status_check.status}).")
-            raise HTTPException(status_code=409, detail=f"Analysis not completed yet (Status: {status_check.status.value})")
-        else:
-            logger.warning(f"Analysis ID not found for results query: {analysis_id}")
-            raise HTTPException(status_code=404, detail="Analysis not found")
+        logger.warning(f"Analysis ID not found for results query: {analysis_id}")
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    if analysis.status not in {AnalysisStatus.COMPLETED, AnalysisStatus.FAILED}:
+        logger.warning(f"Analysis {analysis_id} found but not yet completed (status: {analysis.status}).")
+        raise HTTPException(status_code=409, detail=f"Analysis not completed yet (Status: {analysis.status.value})")
 
     logger.debug(f"Returning results for completed/failed analysis {analysis_id}")
-    return analysis
+    
+    return AnalysisStatusResponse(
+        analysis_id=str(analysis.id),
+        status=analysis.status,
+        progress=analysis.progress,
+        started_at=analysis.started_at,
+        estimated_completion=None,
+        completed_at=analysis.completed_at,
+        results=parse_results(analysis.results),
+        report_paths=parse_report_paths(analysis.report_paths),
+        error=analysis.error
+    )
 
 @router.get("/", response_model=List[AnalysisStatusResponse])
 async def list_analyses_endpoint(
@@ -211,6 +276,19 @@ async def list_analyses_endpoint(
     Get a list of all analyses (most recent first).
     """
     logger.debug("Requesting list of all analyses")
-    analyses: List[Analysis] = await analysis_service.list_analyses(session)
+    analyses: List[Analysis] = await analysis_service.list_analyses(session)  # type: ignore[attr-defined]
     logger.info(f"Returning {len(analyses)} analysis records.")
-    return analyses
+    
+    return [
+        AnalysisStatusResponse(
+            analysis_id=str(a.id),
+            status=a.status,
+            progress=a.progress,
+            started_at=a.started_at,
+            estimated_completion=None,
+            completed_at=a.completed_at,
+            results=parse_results(a.results),
+            report_paths=parse_report_paths(a.report_paths),
+            error=a.error
+        ) for a in analyses
+    ]

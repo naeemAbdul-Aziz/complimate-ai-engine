@@ -3,6 +3,7 @@ import os
 import time
 import asyncio
 import logging # Import logging
+from engine.regulation_manager import RegulationManager
 import datetime # For report naming
 from dotenv import load_dotenv
 from llama_index.core import VectorStoreIndex, Document, Settings
@@ -18,7 +19,9 @@ from engine.violation import create_violation_prompt, process_batch_violation_re
 from utils.cache import get_json, set_json, key_hash
 
 # Import reporting functions
+# Import reporting functions
 from reporting.report_generator import generate_report, generate_text_report, generate_pdf_report
+from utils.file_utils import generate_report_filename
 
 # --- Production Logging Configuration ---
 from config.logger import get_component_logger, log_performance
@@ -26,7 +29,6 @@ logger = get_component_logger('main')
 # -----------------------------------
 
 # Constants
-REGULATION_FILE = "data/regulations/li_2204.pdf"
 CONTRACT_FOLDER = "data/contracts"
 REPORTS_FOLDER = "reports"
 
@@ -81,7 +83,7 @@ def load_regulation(file_path):
                 try:
                     page_text = page.extract_text()
                     if page_text:
-                        text += page_text + "\\n"
+                        text += page_text + "\n"
                         pages_processed += 1
                     else:
                         logger.warning(f"No text extracted from page {i+1} of {file_path}")
@@ -120,11 +122,6 @@ async def main():
     logger.info("=== Starting Contract Compliance Analysis ===")
 
     try:
-        # Validate environment configuration (allow stub free mode)
-        if not openai_api_key:
-            logger.critical("OPENAI_API_KEY not configured. Cannot run analysis.")
-            return False
-
         # Ensure output directory exists with proper error handling
         if not os.path.exists(REPORTS_FOLDER):
             try:
@@ -151,55 +148,34 @@ async def main():
             logger.critical(f"Failed to initialize OpenAI models: {e}")
             return False
 
-        # Load and process regulation documents
-        logger.info("Loading regulation documents...")
-        regulation_text = load_regulation(REGULATION_FILE)
-        if not regulation_text:
-            logger.critical("Failed to load regulation text - cannot proceed with analysis")
-            return False
-
-        # Create regulation index with error handling
-        logger.info("Creating regulation index...")
-        index_start = time.time()
+        # Load regulation index (Offline Indexing Architecture)
+        logger.info("Loading regulation index...")
+        reg_manager = RegulationManager()
         
-        try:
-            regulation_document = Document(text=regulation_text, doc_id=REGULATION_FILE)
-            regulation_index = VectorStoreIndex.from_documents([regulation_document])
-            
-            index_duration = time.time() - index_start
-            log_performance("regulation_index_creation", index_duration, True)
-            logger.info("Regulation index created successfully")
-            
-        except Exception as e:
-            index_duration = time.time() - index_start
-            log_performance("regulation_index_creation", index_duration, False, {"error": str(e)})
-            logger.critical(f"Failed to create regulation index: {e}")
+        # Try to load the index. It will auto-rebuild if empty.
+        regulation_index = reg_manager.get_regulation_index()
+        
+        if not regulation_index:
+            logger.critical("Failed to load regulation index.")
+            logger.critical("Please run 'python scripts/rebuild_regulations_index.py' to build the index first.")
             return False
+            
+        logger.info("Regulation index loaded successfully.")
 
-        # Discover and validate contract files
-        try:
-            if not os.path.exists(CONTRACT_FOLDER):
-                logger.critical(f"Contract folder does not exist: {CONTRACT_FOLDER}")
-                return False
-                
-            contract_files = [f for f in os.listdir(CONTRACT_FOLDER) 
-                            if f.lower().endswith((".pdf", ".txt", ".docx"))]
-            
-            if not contract_files:
-                logger.warning(f"No contract files found in {CONTRACT_FOLDER}")
-                logger.info("Please add contract files (.pdf, .txt, .docx) to the contracts folder")
-                return False
-                
-            logger.info(f"Found {len(contract_files)} contract(s) to process: {contract_files}")
-            
-        except PermissionError:
-            logger.critical(f"Permission denied accessing contract folder: {CONTRACT_FOLDER}")
+        # Discover contract files
+        if not os.path.exists(CONTRACT_FOLDER):
+            logger.critical(f"Contract folder not found: {CONTRACT_FOLDER}")
             return False
-        except Exception as e:
-            logger.critical(f"Error accessing contract files: {e}")
-            return False
+            
+        contract_files = [f for f in os.listdir(CONTRACT_FOLDER) if f.lower().endswith(('.pdf', '.txt'))]
+        
+        if not contract_files:
+            logger.warning(f"No supported contract files (PDF/TXT) found in {CONTRACT_FOLDER}")
+            return True
 
-        # --- Analysis Loop for Each Contract ---
+        logger.info(f"Found {len(contract_files)} contract(s) to process.")
+
+        # Process each contract
         for contract_file_name in contract_files:
             contract_file_path = os.path.join(CONTRACT_FOLDER, contract_file_name)
             logger.info(f"--- Processing contract: {contract_file_path} ---")
@@ -412,7 +388,7 @@ async def main():
             report_data = {
                 "contract_name": contract_file_name,
                 "contract_path": contract_file_path,
-                "regulation_file": REGULATION_FILE,
+                "regulation_file": "All Indexed Regulations", # Default for now
                 "analysis_timestamp": datetime.datetime.now().isoformat(),
                 "total_prompts_sent": len(tasks),
                 "successful_responses": successful_responses_count,
@@ -431,16 +407,19 @@ async def main():
             }
 
             # Define report paths
-            json_report_path = os.path.join(REPORTS_FOLDER, f"{base_report_name}_report.json")
-            txt_report_path = os.path.join(REPORTS_FOLDER, f"{base_report_name}_report.txt")
-            pdf_report_path = os.path.join(REPORTS_FOLDER, f"{base_report_name}_report.pdf") # PDF Path
+            # Use smart filename generation
+            json_filename = generate_report_filename(contract_file_name, "json")
+            txt_filename = generate_report_filename(contract_file_name, "txt")
+            pdf_filename = generate_report_filename(contract_file_name, "pdf")
+            
+            json_report_path = os.path.join(REPORTS_FOLDER, json_filename)
+            txt_report_path = os.path.join(REPORTS_FOLDER, txt_filename)
+            pdf_report_path = os.path.join(REPORTS_FOLDER, pdf_filename)
 
             # Generate all reports
             generate_report(report_data, json_report_path) # JSON
             generate_text_report(report_data, txt_report_path) # Text
             generate_pdf_report(report_data, pdf_report_path) # PDF (function logs errors internally)
-
-            logger.info(f"Finished processing contract: {contract_file_name}")
 
         # After processing all contracts, log overall completion
         total_duration = time.time() - start_time

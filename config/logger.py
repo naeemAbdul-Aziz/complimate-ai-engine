@@ -156,7 +156,8 @@ def configure_logging(
     if components is None:
         components = [
             'api', 'engine', 'parsing', 'retrieval', 
-            'violation', 'reporting', 'storage', 'auth'
+            'violation', 'reporting', 'storage', 'auth',
+            'ingestion'
         ]
     
     # Log file configuration
@@ -239,18 +240,17 @@ def configure_logging(
     for component in components:
         component_logger = logging.getLogger(f"complimate.{component}")
         
-        # Component-specific file handler for important components
-        if component in ['api', 'engine']:
-            component_file = log_files.get(component, log_dir_path / f"{component}.log")
-            component_handler = logging.handlers.RotatingFileHandler(
-                component_file,
-                maxBytes=15 * 1024 * 1024,  # 15MB
-                backupCount=7,
-                encoding='utf-8'
-            )
-            component_handler.setLevel(logging.DEBUG)
-            component_handler.setFormatter(file_formatter)
-            component_logger.addHandler(component_handler)
+        # Create component-specific file handler for ALL components
+        component_file = log_files.get(component, log_dir_path / f"{component}.log")
+        component_handler = logging.handlers.RotatingFileHandler(
+            component_file,
+            maxBytes=15 * 1024 * 1024,  # 15MB
+            backupCount=7,
+            encoding='utf-8'
+        )
+        component_handler.setLevel(logging.DEBUG)
+        component_handler.setFormatter(file_formatter)
+        component_logger.addHandler(component_handler)
         
         loggers[component] = LoggerAdapter(
             component_logger, 

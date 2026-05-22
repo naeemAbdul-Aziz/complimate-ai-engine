@@ -63,6 +63,18 @@ to parse contracts and flag compliance risks efficiently.
 - Python 3.8+
 - Virtual environment (recommended)
 - Dependencies listed in `requirements.txt`
+- **OCR Tools (for scanned regulation PDFs)**:
+  - **Tesseract OCR** - Required for text extraction from scanned documents
+  - **Poppler** - Required for PDF to image conversion
+  - See `setup_ocr.md` in artifacts for installation instructions
+
+### Current Regulation Status
+
+**Indexed**: 16 out of 23 regulation files successfully indexed  
+**Coverage**: 69.6% of available regulations  
+**Failed**: 7 files pending investigation (poor scan quality/corrupted files)  
+
+See `failed_regulations_tracking.md` for details on files requiring attention.
 
 ### Setup
 
@@ -311,6 +323,7 @@ For more about **CompliMate**, see our landing page - complighana.com
 
 - Investor & Buyer Brief: docs/complimate-investor-and-buyer-brief.md
 - Developer Manual (end-to-end): docs/developer/README.md
+- Third-Party Services Setup Guide: [docs/THIRD_PARTY_SERVICES.md](file:///c:/Users/naeemaziz/Desktop/complimate-ai-engine/docs/THIRD_PARTY_SERVICES.md)
 
 ---
 

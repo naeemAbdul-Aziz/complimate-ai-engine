@@ -11,6 +11,9 @@ from fastapi.testclient import TestClient
 
 # Set test environment
 os.environ["ENVIRONMENT"] = "testing"
+# Prevent LlamaIndex initialization failures by ensuring a mock API key is present at import time
+if not os.environ.get("OPENAI_API_KEY"):
+    os.environ["OPENAI_API_KEY"] = "mock-test-key-for-init"
 
 from api.main import app
 from config import settings

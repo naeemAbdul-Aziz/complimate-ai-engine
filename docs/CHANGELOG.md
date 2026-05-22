@@ -1,15 +1,48 @@
-# Changelog
+## [3.0.0] - 2026-05-22 — Cloud-Native, Zero-Downtime Architecture
 
-All notable changes to the CompliMate AI Engine will be documented in this file.
+### 🏗️ Architecture Overhaul — Pinecone-First
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+#### Hot-Path Isolation (Critical Fix)
+- **REMOVED** synchronous `rebuild_index()` fallback from `RegulationManager.get_regulation_index()`.
+  The API server will no longer hang for 15+ minutes during startup or user requests.
+- Analysis endpoint now returns `503 Service Unavailable` with a clear message when the
+  Pinecone index is not yet populated, instead of blocking the request thread.
 
-## [2.0.0] - 2025-09-29
+#### Admin Regulation Management API (New)
+- `POST /api/v1/regulations/` — Upload a new regulation PDF. Triggers background OCR + Pinecone upsert.
+  Returns `202 Accepted` immediately. Poll `GET /api/v1/regulations/{id}` for indexing progress.
+- `DELETE /api/v1/regulations/{id}` — Retire a regulation. Marks DB record as `RETIRED` and
+  issues async Pinecone namespace delete. Zero downtime.
+- `GET /api/v1/regulations/{id}` — Check indexing status of a single regulation document.
+- All admin endpoints are protected by `X-Admin-Key` header validated against `ADMIN_API_KEY` env var.
 
-### 🚀 Major Features Added
+#### Database — `regulation_documents` Table
+- Added new `RegulationDocument` SQLModel table to track every regulation's lifecycle:
+  filename, category, SHA256 hash, storage path, chunk count, Pinecone namespace, and
+  status (`PENDING → INDEXING → ACTIVE | ERROR | RETIRED`).
+- Duplicate detection: uploading a PDF whose SHA256 hash already exists with `ACTIVE` status
+  returns HTTP 409 (Conflict).
 
-#### Multi-Regulation Support System
+### ⚙️ Configuration Additions (V3 Env Vars)
+- `ADMIN_API_KEY` — Secret key for admin regulation endpoints. Auto-generated if not set.
+- `CLOUD_STORAGE_PROVIDER` — `local` (default) or `s3`. Phase 2 will add full S3 support.
+- `AWS_S3_BUCKET_NAME`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` — Phase 2 S3 vars.
+- `MAX_REGULATION_FILE_SIZE_MB` — Max size for uploaded regulation PDFs (default: `50`).
+
+### 📌 Production Deployment Notes (V3)
+- Set `VECTOR_DB_PROVIDER=pinecone` in production `.env`.
+- Run `python scripts/ingest_regulations.py` once after first deploy to populate Pinecone.
+- Set `DATABASE_URL` to a PostgreSQL connection string in production.
+- API server startup is now < 5 seconds (no regulation indexing on boot).
+
+### 📚 Documentation
+- Updated `docs/API_DOCUMENTATION.md` with new admin endpoints.
+- Updated `docs/DATABASE_PERSISTENCE_STATUS.md` to include `regulation_documents` table.
+- Updated `docs/PROJECT_STRUCTURE.md` to reflect Pinecone-first architecture.
+- Updated `docs/IMPLEMENTATION_PLAN.md` to supersede V2 plan.
+
+---
+
 - **Enhanced Regulation Manager** - Complete rewrite supporting multiple regulation files
 - **Category-based Organization** - Regulations grouped by petroleum, tax, environmental, etc.
 - **Version Tracking** - Track regulation versions and effective dates

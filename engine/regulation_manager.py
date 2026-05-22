@@ -29,6 +29,7 @@ from pypdf import PdfReader
 
 from config import settings
 from utils import LoggerMixin
+from utils.pdf_utils import extract_pdf_text
 from engine.vector_store.provider import VectorStoreProvider
 
 
@@ -85,7 +86,7 @@ class RegulationManager(LoggerMixin):
         self._load_metadata()
     
     def _initialize_storage(self) -> None:
-        """Initialize vector storage via provider abstraction only."""
+        """Initialize vector storage via provider abstraction only and load existing index."""
         try:
             provider = VectorStoreProvider()
             store = provider.get_vector_store()
@@ -93,6 +94,11 @@ class RegulationManager(LoggerMixin):
                 self.vector_store = store
                 self.using_persistent_storage = True
                 self.logger.info("Vector store initialized via provider")
+                try:
+                    self.regulation_index = VectorStoreIndex.from_vector_store(store)
+                    self.logger.info("Regulation index loaded from persistent vector store successfully.")
+                except Exception as index_err:
+                    self.logger.error(f"Failed to load index from persistent vector store: {index_err}")
             else:
                 self.logger.info("No vector store returned; using in-memory index")
         except Exception as e:
@@ -211,17 +217,46 @@ class RegulationManager(LoggerMixin):
         return hash_md5.hexdigest()
     
     def _extract_pdf_text(self, file_path: Path) -> str:
-        """Extract text from PDF file."""
+        """Extract text from PDF; auto-attempt OCR per-document if initial extraction empty.
+        
+        FAANG-level Strategy:
+        1. Try standard extraction (respect global ENABLE_PDF_OCR setting)
+        2. If empty and global OCR disabled, attempt on-demand OCR for this document
+        3. Return stripped text (may be empty for truly unreadable PDFs)
+        """
         try:
-            text = ""
-            with open(file_path, "rb") as file:
-                reader = PdfReader(file)
-                for page in reader.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text += page_text + "\\n"
+            # First pass (respect global ENABLE_PDF_OCR setting)
+            text = extract_pdf_text(
+                file_path,
+                enable_ocr=getattr(settings, "ENABLE_PDF_OCR", False),
+                ocr_lang=getattr(settings, "OCR_LANG", "eng"),
+                min_alpha_ratio=getattr(settings, "PDF_TEXT_MIN_ALPHA_RATIO", 0.2),
+                min_line_len=getattr(settings, "PDF_FILTER_MIN_LINE_LEN", 12),
+                logger=self.logger,
+            )
+            if text.strip():
+                return text.strip()
             
-            return text.strip()
+            # Auto on-demand OCR if disabled globally but text empty
+            if not getattr(settings, "ENABLE_PDF_OCR", False):
+                try:
+                    self.logger.info(f"Attempting on-demand OCR for {file_path.name} (initial extraction empty).")
+                    ocr_text = extract_pdf_text(
+                        file_path,
+                        enable_ocr=True,
+                        ocr_lang=getattr(settings, "OCR_LANG", "eng"),
+                        min_alpha_ratio=getattr(settings, "PDF_TEXT_MIN_ALPHA_RATIO", 0.2),
+                        min_line_len=getattr(settings, "PDF_FILTER_MIN_LINE_LEN", 12),
+                        logger=self.logger,
+                    )
+                    if ocr_text.strip():
+                        self.logger.info(f"✓ OCR succeeded for {file_path.name}.")
+                        return ocr_text.strip()
+                    else:
+                        self.logger.warning(f"✗ OCR produced no text for {file_path.name}.")
+                except Exception as ocr_err:
+                    self.logger.warning(f"On-demand OCR failed for {file_path.name}: {ocr_err}")
+            return ""
             
         except Exception as e:
             self.logger.error(f"Failed to extract text from {file_path}: {e}")
@@ -249,17 +284,27 @@ class RegulationManager(LoggerMixin):
         return metadata
     
     def discover_regulation_files(self) -> List[Path]:
-        """Discover all regulation files in the regulations directory."""
+        """Discover all regulation files recursively in the regulations directory."""
         if not settings.REGULATIONS_DIR.exists():
             self.logger.warning(f"Regulations directory not found: {settings.REGULATIONS_DIR}")
             return []
         
         regulation_files = []
-        for file_path in settings.REGULATIONS_DIR.glob("*.pdf"):
+        # Use rglob to search recursively in subdirectories
+        for file_path in settings.REGULATIONS_DIR.rglob("*.pdf"):
             if file_path.is_file():
                 regulation_files.append(file_path)
         
-        self.logger.info(f"Discovered {len(regulation_files)} regulation files")
+        # Sort for deterministic processing order
+        regulation_files.sort(key=lambda p: p.name.lower())
+        
+        if regulation_files:
+            self.logger.info(f"Discovered {len(regulation_files)} regulation files (recursive search, including subfolders):")
+            for f in regulation_files:
+                self.logger.info(f"  - {f}")
+        else:
+            self.logger.info("No regulation files found during recursive search.")
+        
         return regulation_files
     
     def should_reindex_file(self, file_path: Path) -> bool:
@@ -281,10 +326,27 @@ class RegulationManager(LoggerMixin):
         try:
             self.logger.info(f"Indexing regulation file: {file_path}")
             
-            # Extract text
+            # Extract text (with auto-OCR fallback)
             text = self._extract_pdf_text(file_path)
             if not text:
-                raise ValueError(f"No text extracted from {file_path}")
+                self.logger.warning(f"No extractable text in {file_path}; recording metadata only.")
+                # Create metadata-only entry for scanned/image PDFs
+                file_stats = file_path.stat()
+                metadata = RegulationMetadata(
+                    file_path=str(file_path),
+                    file_name=file_path.name,
+                    category=category,
+                    title=file_path.stem.replace("_", " ").replace("-", " ").title(),
+                    file_size=file_stats.st_size,
+                    file_hash=self._calculate_file_hash(file_path),
+                    indexed_date=datetime.now().isoformat(),
+                    description="Scanned or image-based PDF; no text extracted",
+                    tags=[],
+                    chunk_count=0
+                )
+                self.regulations_metadata[file_path.name] = metadata
+                self._save_metadata()
+                return metadata
             
             # Extract metadata
             auto_metadata = self._extract_metadata_from_text(text, file_path.name)
@@ -358,10 +420,16 @@ class RegulationManager(LoggerMixin):
             # Convert nodes back to documents
             documents = []
             for i, node in enumerate(nodes):
+                doc_id = f"{main_doc.doc_id}_chunk_{i}"
+                # Explicitly add IDs to metadata so they appear in the vector store
+                node_metadata = node.metadata.copy()
+                node_metadata["doc_id"] = doc_id
+                node_metadata["document_id"] = main_doc.doc_id
+                
                 doc = Document(
                     text=node.get_content(),
-                    doc_id=f"{main_doc.doc_id}_chunk_{i}",
-                    metadata=node.metadata
+                    doc_id=doc_id,
+                    metadata=node_metadata
                 )
                 documents.append(doc)
             
@@ -472,7 +540,7 @@ class RegulationManager(LoggerMixin):
                 return category
         
         # Auto-categorize based on filename
-        if "petroleum" in file_name_lower or "li_2204" in file_name_lower:
+        if "petroleum" in file_name_lower:
             return "petroleum"
         elif "mining" in file_name_lower:
             return "mining"
@@ -484,20 +552,27 @@ class RegulationManager(LoggerMixin):
             return "general"
     
     def get_regulation_index(self) -> Optional[VectorStoreIndex]:
-        """Get the current regulation index."""
+        """Get the current regulation index (read-only — never triggers a rebuild).
+
+        Returns the in-memory VectorStoreIndex if it has been loaded, or None if
+        the index has not yet been populated via the ingestion pipeline.
+
+        NOTE: This method intentionally does NOT call rebuild_index(). Triggering a
+        synchronous rebuild here would block the API request thread for 10–15 minutes
+        while OCR and embedding calls run. Index population is the sole responsibility
+        of the admin ingestion pipeline (scripts/ingest_regulations.py or
+        POST /api/v1/regulations/rebuild/async). Analysis callers must handle None
+        by returning a 503 to the user.
+        """
         if self.regulation_index is None:
-            self.logger.info("No regulation index found, initiating conditional rebuild...")
-            # Skip auto rebuild if OpenAI not configured (would fail anyway)
-            if not settings.OPENAI_API_KEY:
-                self.logger.warning("Skipping rebuild: OPENAI_API_KEY not configured")
-                return None
-            result = self.rebuild_index()
-            if result.get("status") == "cooldown":
-                self.logger.warning("Rebuild skipped due to cooldown; index remains unavailable")
-            elif result["files_processed"] == 0:
-                self.logger.warning("No regulations were indexed")
-        
+            self.logger.critical(
+                "Regulation index is not loaded. The API will return 503 to analysis "
+                "requests until the index is populated. To fix this, run: "
+                "  python scripts/ingest_regulations.py "
+                "or call: POST /api/v1/regulations/rebuild/async"
+            )
         return self.regulation_index
+
     
     def get_regulations_info(self) -> Dict[str, Any]:
         """Get information about all indexed regulations."""

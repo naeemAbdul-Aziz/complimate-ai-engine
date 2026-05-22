@@ -16,7 +16,7 @@ If the secondary model errors, it falls back to returning the original list.
 from __future__ import annotations
 
 from typing import List, Dict, Any, Generator, Tuple, DefaultDict
-from collections import defaultdict
+from collections import defaultdict, deque
 import re
 import json
 import logging
@@ -42,6 +42,30 @@ _secondary_breaker = SimpleCircuitBreaker(
     fail_threshold=int(getattr(app_settings, "SECONDARY_BREAKER_FAIL_THRESHOLD", 2)),
     reset_seconds=int(getattr(app_settings, "SECONDARY_BREAKER_RESET_SECONDS", 300)),
 )
+
+# Lightweight health tracker for adaptive failover
+class _RefinementHealth:
+    def __init__(self) -> None:
+        self.window = int(getattr(app_settings, "REFINEMENT_WINDOW", 10))
+        self.min_obs = int(getattr(app_settings, "REFINEMENT_MIN_OBSERVATIONS", 5))
+        self.max_ratio = float(getattr(app_settings, "REFINEMENT_TIMEOUT_RATIO_MAX", 0.5))
+        self._events: deque[str] = deque(maxlen=max(1, self.window))
+
+    def record(self, outcome: str) -> None:
+        # outcome in {"success", "timeout", "error"}
+        if outcome not in ("success", "timeout", "error"):
+            outcome = "error"
+        self._events.append(outcome)
+
+    def should_trip(self) -> bool:
+        events = list(self._events)
+        if len(events) < max(1, self.min_obs):
+            return False
+        bad = sum(1 for e in events if e in ("timeout", "error"))
+        ratio = bad / max(1, len(events))
+        return ratio >= self.max_ratio
+
+_health = _RefinementHealth()
 
 # --- NEW CHUNKING UTILITY ---
 def _chunk_list(data: List[Any], chunk_size: int) -> Generator[List[Any], None, None]:
@@ -304,6 +328,7 @@ def refine_violations(violations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             if len(violations) > complexity_threshold or len(chunk) >= CHUNK_SIZE:
                 model_to_use = fast_model
             
+            chunk_outcome = "error"  # pessimistic default
             while attempt <= max_retries:
                 try:
                     # Respect remaining budget for this chunk
@@ -313,6 +338,7 @@ def refine_violations(violations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                     if remaining < 5.0:
                         logger.error("Refinement budget exhausted for chunk %d/%d (remaining=%.2fs). Skipping chunk.", i + 1, len(chunks), remaining)
                         raw = "[]"
+                        chunk_outcome = "timeout"
                         break
 
                     per_attempt_timeout = max(5.0, min(request_timeout, remaining - 0.5))
@@ -324,6 +350,7 @@ def refine_violations(violations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                     )
                     raw = resp.choices[0].message.content if resp.choices else "[]"
                     logger.info("Chunk %d/%d successful in %.2fs.", i + 1, len(chunks), time.monotonic() - chunk_start_time)
+                    chunk_outcome = "success"
                     break # Success, break out of retry loop
                 except OpenAIAPITimeoutError as e:
                     last_err = e
@@ -338,6 +365,7 @@ def refine_violations(violations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                         logger.error("Refinement deadline reached (%.2fs) during chunk processing. Aborting.", deadline)
                         # Skip this chunk; continue others
                         raw = "[]"
+                        chunk_outcome = "timeout"
                         break
                     time.sleep(delay)
                     attempt += 1
@@ -352,6 +380,7 @@ def refine_violations(violations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                     if elapsed + delay > deadline:
                         logger.error("Refinement deadline reached (%.2fs) during chunk processing. Aborting.", deadline)
                         raw = "[]"
+                        chunk_outcome = "error"
                         break
                     time.sleep(delay)
                     attempt += 1
@@ -360,11 +389,28 @@ def refine_violations(violations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             if raw is None:
                 # If all retries failed for this chunk
                 logger.error("Chunk %d/%d failed after all retries. Aborting refinement.", i + 1, len(chunks))
+                _health.record("error")
+                if _health.should_trip():
+                    logger.warning("Secondary refinement unhealthy: high timeout/error ratio. Disabling for %ds.",
+                                   int(getattr(app_settings, "REFINEMENT_COOLDOWN_SECONDS", 600)))
+                    try:
+                        _secondary_breaker.trip(int(getattr(app_settings, "REFINEMENT_COOLDOWN_SECONDS", 600)))
+                    except Exception:
+                        pass
                 # Skip this chunk and proceed with others
                 continue
 
             # Attempt to parse JSON and clean (tolerant extractor)
             refined = _extract_json_array(raw)
+            # Record health and possibly trip breaker
+            try:
+                _health.record(chunk_outcome)
+                if _health.should_trip():
+                    logger.warning("Secondary refinement unhealthy: high timeout/error ratio. Disabling for %ds.",
+                                   int(getattr(app_settings, "REFINEMENT_COOLDOWN_SECONDS", 600)))
+                    _secondary_breaker.trip(int(getattr(app_settings, "REFINEMENT_COOLDOWN_SECONDS", 600)))
+            except Exception:
+                pass
             if isinstance(refined, list):
                 # Build lookup to inherit metadata (category, regulation_ref, ids) from source items in this chunk
                 source_index = []

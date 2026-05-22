@@ -53,3 +53,39 @@ class Analysis(SQLModel, table=True):
     report_paths: Optional[Dict[str, str]] = Field(default=None, sa_column=Column(JSON))
 
     error: Optional[str] = Field(default=None)
+
+
+class RegulationDocument(SQLModel, table=True):
+    """Tracks the lifecycle of each regulation PDF from upload to Pinecone indexing.
+
+    This table is the V3 source of truth for regulation state, replacing the local
+    regulations_metadata.json file. Each row corresponds to one PDF file.
+
+    Status flow: PENDING → INDEXING → ACTIVE | ERROR | RETIRED
+    """
+    __tablename__ = "regulation_documents"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    # File identity
+    file_name: str = Field(index=True)
+    title: str
+    category: str = Field(default="petroleum")  # petroleum | mining | environmental | labor | general
+    description: Optional[str] = Field(default=None)
+
+    # Deduplication — SHA256 hash of the raw PDF bytes
+    file_hash: str = Field(index=True)
+
+    # Where the PDF lives (local path Phase 1, S3 key Phase 2)
+    storage_path: str
+
+    # Indexing state
+    chunk_count: int = Field(default=0)
+    status: str = Field(default="PENDING", index=True)  # PENDING | INDEXING | ACTIVE | ERROR | RETIRED
+    pinecone_namespace: Optional[str] = Field(default=None)  # e.g. "doc_42" — unique per document
+    error_message: Optional[str] = Field(default=None)
+
+    # Timestamps
+    created_at: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+    indexed_at: Optional[datetime.datetime] = Field(default=None)
+    retired_at: Optional[datetime.datetime] = Field(default=None)

@@ -34,6 +34,7 @@ from engine.retrieval import find_relevant_regulations
 from engine.violation import create_violation_prompt, process_batch_violation_responses
 from engine.regulation_manager import RegulationManager
 from reporting.report_generator import generate_report, generate_text_report, generate_pdf_report
+from utils.file_utils import generate_report_filename
 
 from config import settings
 from config.logger import get_component_logger, log_performance
@@ -266,7 +267,10 @@ class AnalysisService:
 
                 regulation_index = self.regulation_manager.get_regulation_index()
                 if regulation_index is None:
-                    raise RuntimeError("Regulation index is not available. Cannot perform analysis.")
+                    raise RuntimeError(
+                        "The regulatory index is not ready. The system is still being initialized. "
+                        "Please try again in a few minutes. If this persists, contact your administrator."
+                    )
 
                 for node_idx, node in enumerate(contract_nodes):
                     contract_content = node.get_content()
@@ -458,22 +462,28 @@ class AnalysisService:
             "failed_responses": failed_responses,
             "potential_issues_found": len(violations),
             "violations": violations,
-         }
+        }
 
     async def _generate_reports(self, analysis_id: str, report_data: dict) -> dict:
         """Generate all report formats asynchronously."""
-        base_name = f"{report_data['contract_name']}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        settings.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+        contract_name = report_data.get('contract_name', 'Unknown')
+        
+        if hasattr(settings, 'REPORTS_DIR'):
+            settings.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+            report_dir = settings.REPORTS_DIR
+        else:
+            report_dir = Path("reports")
+            report_dir.mkdir(parents=True, exist_ok=True)
 
         report_paths_abs = {
-            "json_file": settings.REPORTS_DIR / f"{base_name}_report.json",
-            "txt": settings.REPORTS_DIR / f"{base_name}_report.txt",
-            "pdf": settings.REPORTS_DIR / f"{base_name}_report.pdf"
+            "json": report_dir / generate_report_filename(contract_name, "json"),
+            "txt": report_dir / generate_report_filename(contract_name, "txt"),
+            "pdf": report_dir / generate_report_filename(contract_name, "pdf")
         }
 
         try:
             loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, generate_report, report_data, str(report_paths_abs["json_file"]))
+            await loop.run_in_executor(None, generate_report, report_data, str(report_paths_abs["json"]))
             self.logger.debug(f"[{analysis_id}] JSON report generated.")
             await loop.run_in_executor(None, generate_text_report, report_data, str(report_paths_abs["txt"]))
             self.logger.debug(f"[{analysis_id}] TXT report generated.")
