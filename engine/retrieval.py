@@ -16,12 +16,25 @@ class RetrievalManager:
     def __init__(self, regulation_index):
         self.regulation_index = regulation_index
         self._bm25_retriever = None
+        self._bm25_failed = False
         
     def get_bm25_retriever(self):
         """Get or create BM25 retriever (reusable)."""
-        if self._bm25_retriever is None:
-            logger.info("Initializing BM25Retriever (lazy load)...")
-            self._bm25_retriever = BM25Retriever.from_defaults(index=self.regulation_index)
+        if self._bm25_retriever is None and not self._bm25_failed:
+            try:
+                logger.info("Initializing BM25Retriever (lazy load)...")
+                # Check if the docstore contains nodes before initializing to prevent empty max() errors
+                docstore = getattr(self.regulation_index, "docstore", None)
+                if docstore and not docstore.docs:
+                    logger.warning("Index docstore is empty. BM25 is not supported on remote-only vector stores. Falling back to vector-only search.")
+                    self._bm25_failed = True
+                    return None
+                    
+                self._bm25_retriever = BM25Retriever.from_defaults(index=self.regulation_index)
+            except Exception as e:
+                logger.warning(f"Could not initialize BM25Retriever: {e}. Falling back to vector-only search.")
+                self._bm25_failed = True
+                self._bm25_retriever = None
         return self._bm25_retriever
 
 # Global manager instance (lazy initialized)
@@ -67,13 +80,19 @@ def find_relevant_regulations(contract_node, regulation_index, top_n=5):
     manager = get_retrieval_manager(regulation_index)
     
     # 1. BM25 Search (Keyword)
-    bm25_retriever = manager.get_bm25_retriever()
-    query_bundle = QueryBundle(query_str=content)
-    bm25_results = bm25_retriever.retrieve(query_bundle)
-    logger.info("BM25 search results retrieved. Count: %d", len(bm25_results))
+    bm25_results = []
+    try:
+        bm25_retriever = manager.get_bm25_retriever()
+        if bm25_retriever:
+            query_bundle = QueryBundle(query_str=content)
+            bm25_results = bm25_retriever.retrieve(query_bundle)
+            logger.info("BM25 search results retrieved. Count: %d", len(bm25_results))
+    except Exception as e:
+        logger.warning(f"BM25 retrieval failed: {e}")
 
     # 2. Vector Search (Semantic)
     # Vector retriever is lightweight to init, but we could also cache it if needed
+    query_bundle = QueryBundle(query_str=content)
     vector_retriever = VectorIndexRetriever(index=regulation_index, similarity_top_k=top_n)
     vector_results = vector_retriever.retrieve(query_bundle)
     logger.info("Vector search results retrieved. Count: %d", len(vector_results))

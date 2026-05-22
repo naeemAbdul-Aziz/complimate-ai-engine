@@ -1,15 +1,15 @@
-# CompliMate API v2.0 Documentation
+# CompliMate API v3.0 Documentation
 
 ## Overview
 
-The CompliMate API v2.0 provides endpoints for contract compliance analysis against Ghanaian regulations. This version features multi‑regulation support, persistent vector storage, and advanced regulation management capabilities. Current active scope: petroleum regulations only (LI 2204).
+The CompliMate API v3.0 provides endpoints for contract compliance analysis against Ghanaian petroleum regulations. This version introduces a **cloud-native, Pinecone-first vector architecture** with a dedicated Admin Regulation API for zero-downtime regulation updates.
 
 ### Key Features
-- **Multi-Regulation Support** - Handle multiple regulation files with categorization
-- **Persistent Vector Storage** - ChromaDB integration with automatic persistence
-- **Advanced Indexing** - Smart file change detection and selective re-indexing
-- **Modern Architecture** - FastAPI with modular design and comprehensive documentation
-- **Enhanced Analysis** - Improved compliance checking with detailed progress tracking
+- **Multi-Regulation Support** — 23+ Ghana Petroleum Commission regulation documents indexed
+- **Pinecone Vector Store** — Cloud-hosted, always-available semantic search
+- **Zero-Downtime Updates** — Add or retire regulations via API without restarting the server
+- **Fast Analysis** — Sub-30-second contract compliance checks; index rebuilds never block users
+- **Admin Regulation API** — Secure endpoints for uploading, retiring, and monitoring regulations
 
 ## Base URL
 ```
@@ -85,29 +85,68 @@ Rebuild the regulation index, optionally forcing re-indexing of all files.
 #### 3. Regulation System Status
 GET `/api/v1/regulations/status`
 
+Returns readiness, total count, storage type (pinecone), and categories.
+
 #### 4. Regulation Search (semantic)
 GET `/api/v1/regulations/search?query=...&category=...&limit=10`
 
-Returns ranked results across indexed regulation chunks. Optional `category` filters by regulation category.
+Returns ranked results across indexed regulation chunks. Optional `category` filters by category.
 
-#### 5. Rebuild Regulation Index (async)
+#### 5. Rebuild Regulation Index (async, admin only)
 POST `/api/v1/regulations/rebuild/async`
 
-Schedules a background rebuild using Celery. Returns a `task_id` you can poll via the tasks endpoint.
+Schedules a full background rebuild via Celery. Requires `X-Admin-Key` header. Returns `task_id`.
 
-Get the current status of the regulation management system.
+---
+
+### Admin Regulation Management (V3 — Requires `X-Admin-Key` Header)
+
+#### 6. Upload New Regulation
+**POST** `/api/v1/regulations/`
+
+Upload a new regulation PDF. OCR and Pinecone indexing happen in the background.
+
+**Request:** `multipart/form-data`
+- `file`: PDF binary
+- `title`: string
+- `category`: `petroleum | mining | environmental | labor | general`
+- `description`: string (optional)
+
+**Response `202 Accepted`:**
+```json
+{
+  "regulation_id": 42,
+  "status": "INDEXING",
+  "message": "PDF received. Indexing in background. Poll GET /regulations/42 for progress."
+}
+```
+
+**Error Responses:**
+- `409 Conflict` — PDF with same SHA256 hash already indexed as ACTIVE
+- `413` — File exceeds `MAX_REGULATION_FILE_SIZE_MB`
+- `401` — Missing or invalid `X-Admin-Key`
+
+#### 7. Get Single Regulation Status
+**GET** `/api/v1/regulations/{id}`
+
+Poll indexing progress after a POST upload.
 
 **Response:**
 ```json
 {
-  "success": true,
-  "message": "Regulation system status retrieved",
-  "timestamp": "2025-09-29T12:00:00.123456",
-  "total_regulations": 1,
-  "indexed_regulations": 1,
-  "storage_type": "chromadb_persistent",
-  "storage_path": "C:\\path\\to\\vector_store"
+  "id": 42, "title": "HSSE Manual", "status": "ACTIVE",
+  "chunk_count": 29, "indexed_at": "2026-05-22T07:04:37Z", "error_message": null
 }
+```
+
+#### 8. Retire a Regulation
+**DELETE** `/api/v1/regulations/{id}`
+
+Marks regulation as `RETIRED` in DB and removes vectors from Pinecone asynchronously.
+
+**Response `200 OK`:**
+```json
+{ "message": "Regulation 42 retired. Vectors will be removed from Pinecone." }
 ```
 
 ### Contract Analysis
@@ -386,9 +425,11 @@ Currently, no rate limiting is implemented. Consider adding rate limiting for pr
 3. **API Key**: OpenAI API key should be securely configured via environment variables
 4. **CORS**: CORS is enabled for all origins in development mode
 
-## Performance
+## Performance (V3 Benchmarks)
 
-- **Concurrent Analysis**: Multiple analyses can run simultaneously
-- **File Size Limits**: No explicit limits set (consider adding for production)
-- **Processing Time**: Typically 2-5 minutes per contract depending on size and complexity
-- **Memory Usage**: Varies based on contract size and number of concurrent analyses
+- **Contract Analysis (index loaded):** ~25–30 seconds end-to-end
+- **Startup time:** < 5 seconds (Pinecone connection only, no local OCR on boot)
+- **New regulation indexing:** Background task, < 5 minutes for most PDFs, < 10 minutes for large scanned PDFs
+- **Concurrent Analysis:** Multiple analyses run simultaneously via async FastAPI
+- **Upload File Size Limit:** Configurable via `MAX_REGULATION_FILE_SIZE_MB` (default 50 MB)
+- **503 Fail-Fast:** If Pinecone index is empty, analysis fails in < 1 second with a clear error

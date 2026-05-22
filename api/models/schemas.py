@@ -196,7 +196,7 @@ class AnalysisResults(BaseModel):
 
 class ReportPaths(BaseModel):
     """Model for report file paths."""
-    json_file: str = Field(..., description="Path to JSON report")
+    json_file: str = Field(..., description="Path to JSON report", validation_alias="json")
     txt: str = Field(..., description="Path to text report")
     pdf: str = Field(..., description="Path to PDF report")
 

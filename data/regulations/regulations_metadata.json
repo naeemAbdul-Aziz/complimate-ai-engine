@@ -1,4 +1,393 @@
 {
+  "0-Petroleum-Commission_-Fees-and-Charges-1 (1).pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\regulations\\0-Petroleum-Commission_-Fees-and-Charges-1 (1).pdf",
+    "file_name": "0-Petroleum-Commission_-Fees-and-Charges-1 (1).pdf",
+    "category": "petroleum",
+    "title": "0-Petroleum-Commission -Fees-And-Charges-1 (1)",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 3061372,
+    "file_hash": "dca99064bd14ec94d339524f323d271b",
+    "indexed_date": "2026-05-22T17:38:32.725610",
+    "chunk_count": 8,
+    "description": "Legal regulation document: 0-Petroleum-Commission_-Fees-and-Charges-1 (1).pdf",
+    "tags": [
+      "petroleum",
+      "environmental"
+    ]
+  },
+  "13-Local-Content-and-Local-Participation-Regulations-L_I-2204.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\regulations\\13-Local-Content-and-Local-Participation-Regulations-L_I-2204.pdf",
+    "file_name": "13-Local-Content-and-Local-Participation-Regulations-L_I-2204.pdf",
+    "category": "general",
+    "title": "13-Local-Content-And-Local-Participation-Regulations-L I-2204",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 19328252,
+    "file_hash": "4e45fe7db85c3d26c7430b0e8cd62321",
+    "indexed_date": "2026-05-22T17:38:39.547651",
+    "chunk_count": 20,
+    "description": "Legal regulation document: 13-Local-Content-and-Local-Participation-Regulations-L_I-2204.pdf",
+    "tags": [
+      "petroleum",
+      "mining",
+      "environmental",
+      "labor"
+    ]
+  },
+  "E.-PETROLEUM-COMMISSION-ACT-ACT-821.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\acts\\E.-PETROLEUM-COMMISSION-ACT-ACT-821.pdf",
+    "file_name": "E.-PETROLEUM-COMMISSION-ACT-ACT-821.pdf",
+    "category": "petroleum",
+    "title": "E.-Petroleum-Commission-Act-Act-821",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 376609,
+    "file_hash": "62f8b8ffd24a6ebca2786812e7ab6690",
+    "indexed_date": "2026-05-22T17:39:11.917603",
+    "chunk_count": 6,
+    "description": "Legal regulation document: E.-PETROLEUM-COMMISSION-ACT-ACT-821.pdf",
+    "tags": [
+      "petroleum",
+      "environmental"
+    ]
+  },
+  "ghana_model_petroleum_agreement1.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\guidelines\\ghana_model_petroleum_agreement1.pdf",
+    "file_name": "ghana_model_petroleum_agreement1.pdf",
+    "category": "petroleum",
+    "title": "Ghana Model Petroleum Agreement1",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 471106,
+    "file_hash": "7afd034c29bb93995f9bfc12ff952b60",
+    "indexed_date": "2026-05-22T17:39:24.354479",
+    "chunk_count": 57,
+    "description": "Legal regulation document: ghana_model_petroleum_agreement1.pdf",
+    "tags": [
+      "petroleum",
+      "mining",
+      "environmental",
+      "labor"
+    ]
+  },
+  "ghana_national_petroleum_corporation_law_19831.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\acts\\ghana_national_petroleum_corporation_law_19831.pdf",
+    "file_name": "ghana_national_petroleum_corporation_law_19831.pdf",
+    "category": "petroleum",
+    "title": "Ghana National Petroleum Corporation Law 19831",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 97993,
+    "file_hash": "900ee2246db31df1ca6b36cb5ac337c1",
+    "indexed_date": "2026-05-22T17:39:55.370281",
+    "chunk_count": 10,
+    "description": "Legal regulation document: ghana_national_petroleum_corporation_law_19831.pdf",
+    "tags": [
+      "petroleum",
+      "mining",
+      "labor"
+    ]
+  },
+  "GUIDELINES-FOR-CHANNEL-PARTNERSHIP.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\guidelines\\GUIDELINES-FOR-CHANNEL-PARTNERSHIP.pdf",
+    "file_name": "GUIDELINES-FOR-CHANNEL-PARTNERSHIP.pdf",
+    "category": "general",
+    "title": "Guidelines-For-Channel-Partnership",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 185505,
+    "file_hash": "70e24a7138937d326a0aa96a6e19369f",
+    "indexed_date": "2026-05-22T17:40:02.722337",
+    "chunk_count": 4,
+    "description": "Legal regulation document: GUIDELINES-FOR-CHANNEL-PARTNERSHIP.pdf",
+    "tags": [
+      "petroleum"
+    ]
+  },
+  "GUIDELINES-FOR-STRATEGIC-ALLIANCE.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\guidelines\\GUIDELINES-FOR-STRATEGIC-ALLIANCE.pdf",
+    "file_name": "GUIDELINES-FOR-STRATEGIC-ALLIANCE.pdf",
+    "category": "general",
+    "title": "Guidelines-For-Strategic-Alliance",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 263024,
+    "file_hash": "e99ba0e3a0d16febe7533f0d799c88d9",
+    "indexed_date": "2026-05-22T17:40:04.919871",
+    "chunk_count": 4,
+    "description": "Legal regulation document: GUIDELINES-FOR-STRATEGIC-ALLIANCE.pdf",
+    "tags": [
+      "petroleum",
+      "environmental"
+    ]
+  },
+  "H.-PETROLEUM-EXPLORATION-AND-PRODUCTION-ACT-2016-ACT-919.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\acts\\H.-PETROLEUM-EXPLORATION-AND-PRODUCTION-ACT-2016-ACT-919.pdf",
+    "file_name": "H.-PETROLEUM-EXPLORATION-AND-PRODUCTION-ACT-2016-ACT-919.pdf",
+    "category": "petroleum",
+    "title": "H.-Petroleum-Exploration-And-Production-Act-2016-Act-919",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 1827903,
+    "file_hash": "d4ce7cf7efab67e3ceffd296f6baed9d",
+    "indexed_date": "2026-05-22T17:40:08.756378",
+    "chunk_count": 41,
+    "description": "Legal regulation document: H.-PETROLEUM-EXPLORATION-AND-PRODUCTION-ACT-2016-ACT-919.pdf",
+    "tags": [
+      "petroleum",
+      "environmental",
+      "labor"
+    ]
+  },
+  "HSSE-Manual.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\guidelines\\HSSE-Manual.pdf",
+    "file_name": "HSSE-Manual.pdf",
+    "category": "general",
+    "title": "Hsse-Manual",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 34663559,
+    "file_hash": "1c61e393225a20eedda6e4f7f4c198a1",
+    "indexed_date": "2026-05-22T17:44:10.284702",
+    "chunk_count": 29,
+    "description": "Legal regulation document: HSSE-Manual.pdf",
+    "tags": [
+      "petroleum",
+      "mining",
+      "environmental",
+      "labor"
+    ]
+  },
+  "JV-Guidelines.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\guidelines\\JV-Guidelines.pdf",
+    "file_name": "JV-Guidelines.pdf",
+    "category": "general",
+    "title": "Jv-Guidelines",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 464432,
+    "file_hash": "122ae5c0d653ee2e6f94facfd2c0735e",
+    "indexed_date": "2026-05-22T17:44:24.786319",
+    "chunk_count": 5,
+    "description": "Legal regulation document: JV-Guidelines.pdf",
+    "tags": [
+      "petroleum"
+    ]
+  },
+  "OIL-GAS-INSURANCE-PLACEMENT-FOR-THE-UPSTREAM-SECTOR-1.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\guidelines\\OIL-GAS-INSURANCE-PLACEMENT-FOR-THE-UPSTREAM-SECTOR-1.pdf",
+    "file_name": "OIL-GAS-INSURANCE-PLACEMENT-FOR-THE-UPSTREAM-SECTOR-1.pdf",
+    "category": "general",
+    "title": "Oil-Gas-Insurance-Placement-For-The-Upstream-Sector-1",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 704225,
+    "file_hash": "7c7fdf2923bdb9963e04e1cc39700d31",
+    "indexed_date": "2026-05-22T17:44:28.583926",
+    "chunk_count": 7,
+    "description": "Legal regulation document: OIL-GAS-INSURANCE-PLACEMENT-FOR-THE-UPSTREAM-SECTOR-1.pdf",
+    "tags": [
+      "petroleum",
+      "mining",
+      "environmental"
+    ]
+  },
+  "Petroleum (Exploration and Production) (General) Regulations 2018.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\regulations\\Petroleum (Exploration and Production) (General) Regulations 2018.pdf",
+    "file_name": "Petroleum (Exploration and Production) (General) Regulations 2018.pdf",
+    "category": "petroleum",
+    "title": "Petroleum (Exploration And Production) (General) Regulations 2018",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 14781468,
+    "file_hash": "9c59547b630e717f345d6d92aba4fc3c",
+    "indexed_date": "2026-05-22T17:44:35.172468",
+    "chunk_count": 44,
+    "description": "Legal regulation document: Petroleum (Exploration and Production) (General) Regulations 2018.pdf",
+    "tags": [
+      "petroleum",
+      "mining",
+      "environmental",
+      "labor"
+    ]
+  },
+  "Petroleum-EP-Data-Management-Regulation-2017-L.I2257-2.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\regulations\\Petroleum-EP-Data-Management-Regulation-2017-L.I2257-2.pdf",
+    "file_name": "Petroleum-EP-Data-Management-Regulation-2017-L.I2257-2.pdf",
+    "category": "petroleum",
+    "title": "Petroleum-Ep-Data-Management-Regulation-2017-L.I2257-2",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 10012388,
+    "file_hash": "c43e0a1455b743ffd8e8488e33c5b703",
+    "indexed_date": "2026-05-22T17:44:57.499586",
+    "chunk_count": 11,
+    "description": "Legal regulation document: Petroleum-EP-Data-Management-Regulation-2017-L.I2257-2.pdf",
+    "tags": [
+      "petroleum",
+      "mining",
+      "environmental",
+      "labor"
+    ]
+  },
+  "Petroleum-Exploration-and-Production-General-Amendment-Regulations-2019-L.I.-2390.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\regulations\\Petroleum-Exploration-and-Production-General-Amendment-Regulations-2019-L.I.-2390.pdf",
+    "file_name": "Petroleum-Exploration-and-Production-General-Amendment-Regulations-2019-L.I.-2390.pdf",
+    "category": "petroleum",
+    "title": "Petroleum-Exploration-And-Production-General-Amendment-Regulations-2019-L.I.-2390",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 3342372,
+    "file_hash": "55a617082749b775fbd1f71d92b763c9",
+    "indexed_date": "2026-05-22T17:45:21.347567",
+    "chunk_count": 5,
+    "description": "Legal regulation document: Petroleum-Exploration-and-Production-General-Amendment-Regulations-2019-L.I.-2390.pdf",
+    "tags": [
+      "petroleum",
+      "mining",
+      "environmental"
+    ]
+  },
+  "Petroleum-Exploration-And-Production-HSE-Regulations-2017-L.I-2258.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\regulations\\Petroleum-Exploration-And-Production-HSE-Regulations-2017-L.I-2258.pdf",
+    "file_name": "Petroleum-Exploration-And-Production-HSE-Regulations-2017-L.I-2258.pdf",
+    "category": "petroleum",
+    "title": "Petroleum-Exploration-And-Production-Hse-Regulations-2017-L.I-2258",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 12810367,
+    "file_hash": "58cb2bd083602c5ba41daf4a2e5d6441",
+    "indexed_date": "2026-05-22T17:45:33.668075",
+    "chunk_count": 55,
+    "description": "Legal regulation document: Petroleum-Exploration-And-Production-HSE-Regulations-2017-L.I-2258.pdf",
+    "tags": [
+      "petroleum",
+      "environmental",
+      "labor"
+    ]
+  },
+  "Petroleum-Exploration-and-Production-Measurement-Regulations-1.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\regulations\\Petroleum-Exploration-and-Production-Measurement-Regulations-1.pdf",
+    "file_name": "Petroleum-Exploration-and-Production-Measurement-Regulations-1.pdf",
+    "category": "petroleum",
+    "title": "Petroleum-Exploration-And-Production-Measurement-Regulations-1",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 2025507,
+    "file_hash": "31692b0672d0ac6873da753c31d1d336",
+    "indexed_date": "2026-05-22T17:46:03.207522",
+    "chunk_count": 7,
+    "description": "Legal regulation document: Petroleum-Exploration-and-Production-Measurement-Regulations-1.pdf",
+    "tags": [
+      "petroleum",
+      "mining",
+      "labor"
+    ]
+  },
+  "Petroleum-Exploration-and-Production-Measurement-Regulations.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\guidelines\\Petroleum-Exploration-and-Production-Measurement-Regulations.pdf",
+    "file_name": "Petroleum-Exploration-and-Production-Measurement-Regulations.pdf",
+    "category": "petroleum",
+    "title": "Petroleum-Exploration-And-Production-Measurement-Regulations",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 2025507,
+    "file_hash": "31692b0672d0ac6873da753c31d1d336",
+    "indexed_date": "2026-05-22T17:46:08.206776",
+    "chunk_count": 7,
+    "description": "Legal regulation document: Petroleum-Exploration-and-Production-Measurement-Regulations.pdf",
+    "tags": [
+      "petroleum",
+      "mining",
+      "labor"
+    ]
+  },
+  "PETROLEUM-LOCAL-CONTENT-LOCAL-PARTICIPATION-AMENDMENT-REGULATIONS-2021-LI-2435.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\regulations\\PETROLEUM-LOCAL-CONTENT-LOCAL-PARTICIPATION-AMENDMENT-REGULATIONS-2021-LI-2435.pdf",
+    "file_name": "PETROLEUM-LOCAL-CONTENT-LOCAL-PARTICIPATION-AMENDMENT-REGULATIONS-2021-LI-2435.pdf",
+    "category": "petroleum",
+    "title": "Petroleum-Local-Content-Local-Participation-Amendment-Regulations-2021-Li-2435",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 2953701,
+    "file_hash": "66350108663d5d5fc196f62dbe9955b9",
+    "indexed_date": "2026-05-22T17:46:26.237833",
+    "chunk_count": 4,
+    "description": "Legal regulation document: PETROLEUM-LOCAL-CONTENT-LOCAL-PARTICIPATION-AMENDMENT-REGULATIONS-2021-LI-2435.pdf",
+    "tags": [
+      "petroleum"
+    ]
+  },
+  "Petroleum-Revenue-Management-Regulations-2019-L.I.-2381.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\regulations\\Petroleum-Revenue-Management-Regulations-2019-L.I.-2381.pdf",
+    "file_name": "Petroleum-Revenue-Management-Regulations-2019-L.I.-2381.pdf",
+    "category": "petroleum",
+    "title": "Petroleum-Revenue-Management-Regulations-2019-L.I.-2381",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 2684118,
+    "file_hash": "3d19998c6cd3fc5d33bc9224cc6cc478",
+    "indexed_date": "2026-05-22T17:47:02.491870",
+    "chunk_count": 10,
+    "description": "Legal regulation document: Petroleum-Revenue-Management-Regulations-2019-L.I.-2381.pdf",
+    "tags": [
+      "petroleum",
+      "mining"
+    ]
+  },
+  "PETROLEUM-REVENUE-MANAGMENT-AMENDMENT-ACT-2015-ACT-893.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\acts\\PETROLEUM-REVENUE-MANAGMENT-AMENDMENT-ACT-2015-ACT-893.pdf",
+    "file_name": "PETROLEUM-REVENUE-MANAGMENT-AMENDMENT-ACT-2015-ACT-893.pdf",
+    "category": "petroleum",
+    "title": "Petroleum-Revenue-Managment-Amendment-Act-2015-Act-893",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 2267018,
+    "file_hash": "b2f384da82b8d7efd5cb7b42ad636b77",
+    "indexed_date": "2026-05-22T17:47:27.763562",
+    "chunk_count": 5,
+    "description": "Legal regulation document: PETROLEUM-REVENUE-MANAGMENT-AMENDMENT-ACT-2015-ACT-893.pdf",
+    "tags": [
+      "petroleum"
+    ]
+  },
+  "petroleum_imcome_tax_pndcl_188.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\acts\\petroleum_imcome_tax_pndcl_188.pdf",
+    "file_name": "petroleum_imcome_tax_pndcl_188.pdf",
+    "category": "petroleum",
+    "title": "Petroleum Imcome Tax Pndcl 188",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 1945720,
+    "file_hash": "26a6454ba8a4ede424e5c826fdfd87c3",
+    "indexed_date": "2026-05-22T17:47:30.742533",
+    "chunk_count": 21,
+    "description": "Legal regulation document: petroleum_imcome_tax_pndcl_188.pdf",
+    "tags": [
+      "petroleum",
+      "mining",
+      "labor"
+    ]
+  },
+  "petroluem-revenue-management-act815-2011-.pdf": {
+    "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\acts\\petroluem-revenue-management-act815-2011-.pdf",
+    "file_name": "petroluem-revenue-management-act815-2011-.pdf",
+    "category": "general",
+    "title": "Petroluem-Revenue-Management-Act815-2011-",
+    "effective_date": null,
+    "last_amended": null,
+    "file_size": 4908913,
+    "file_hash": "8780f6b7747020604a01654ef3338c92",
+    "indexed_date": "2026-05-22T17:47:42.658462",
+    "chunk_count": 22,
+    "description": "Legal regulation document: petroluem-revenue-management-act815-2011-.pdf",
+    "tags": [
+      "petroleum",
+      "mining",
+      "environmental"
+    ]
+  },
   "SOCIAL-PERFORMANCE-GUIDELINES-1-1.pdf": {
     "file_path": "C:\\Users\\naeemaziz\\Desktop\\complimate-ai-engine\\data\\regulations\\petrolcom.gov.gh regulations\\guidelines\\SOCIAL-PERFORMANCE-GUIDELINES-1-1.pdf",
     "file_name": "SOCIAL-PERFORMANCE-GUIDELINES-1-1.pdf",
@@ -8,7 +397,7 @@
     "last_amended": null,
     "file_size": 1993,
     "file_hash": "6b681309fc568dfa6fc1f12eb8265857",
-    "indexed_date": "2025-11-21T17:58:55.453327",
+    "indexed_date": "2026-05-22T17:47:59.077597",
     "chunk_count": 0,
     "description": "Scanned or image-based PDF; no text extracted",
     "tags": []

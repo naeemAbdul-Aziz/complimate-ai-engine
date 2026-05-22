@@ -1,4 +1,103 @@
-# CompliMate AI Engine - Database Persistence Implementation Status
+# CompliMate AI Engine - Database Persistence Status
+
+**Version:** 3.0 | **Last Updated:** 2026-05-22
+
+---
+
+## Current Database Tables
+
+The system uses `SQLModel + SQLAlchemy (async)`. Current default is **SQLite** (`sql_app.db`). PostgreSQL is recommended for production via `DATABASE_URL`.
+
+| Table | Purpose | Status |
+|---|---|---|
+| `uploadedfile` | Uploaded contract file metadata | ✅ Active |
+| `analysis` | Analysis job state, results, report paths | ✅ Active |
+| `user` | User accounts and auth info | ✅ Active |
+| `apikey` | API keys per user | ✅ Active |
+| `refreshtoken` | JWT refresh token store | ✅ Active |
+| `auditlog` | Auth and security events | ✅ Active |
+| `regulation_documents` | Per-PDF ingestion state and Pinecone tracking | 🔧 **To be added in V3** |
+
+---
+
+## V3 Addition: `regulation_documents` Table
+
+This table replaces the local `data/regulations/regulations_metadata.json` file as the source of truth for regulation state. It tracks every regulation PDF's lifecycle from upload to active indexing in Pinecone.
+
+```python
+class RegulationDocument(SQLModel, table=True):
+    __tablename__ = "regulation_documents"
+
+    id: Optional[int]      = Field(default=None, primary_key=True)
+    file_name: str         = Field(index=True)
+    title: str
+    category: str          = Field(default="petroleum")
+    description: Optional[str] = None
+    file_hash: str         = Field(index=True)   # SHA256; used for duplicate detection
+    storage_path: str                             # Local path or S3 key
+    chunk_count: int       = Field(default=0)
+    status: str            = Field(default="PENDING")
+    # Status flow: PENDING → INDEXING → ACTIVE | ERROR | RETIRED
+    pinecone_namespace: Optional[str] = None      # e.g., "doc_42"
+    error_message: Optional[str] = None
+    created_at: datetime   = Field(default_factory=datetime.utcnow)
+    indexed_at: Optional[datetime] = None
+    retired_at: Optional[datetime] = None
+```
+
+---
+
+## Current Environment Configuration
+
+### Required for Production
+```env
+# Database (switch from SQLite to PostgreSQL)
+DATABASE_URL=postgresql+asyncpg://user:pass@host/complimate_db
+
+# Vector Store (already set to Pinecone in current .env)
+VECTOR_DB_PROVIDER=pinecone
+PINECONE_API_KEY=<your-key>
+PINECONE_CLOUD=aws
+PINECONE_REGION=us-east-1
+PINECONE_INDEX_NAME=complimate-regulations
+PINECONE_NAMESPACE=default
+
+# OpenAI
+OPENAI_API_KEY=<your-key>
+OPENAI_MODEL=gpt-4.1
+OPENAI_EMBEDDING_MODEL=text-embedding-3-large
+```
+
+### Known Bugs in Current `.env` (Fix These)
+```env
+# ❌ WRONG — these keys don't exist in Settings; they are silently ignored
+REGULATION_CHUNK_SIZE=1000
+REGULATION_CHUNK_OVERLAP=200
+
+# ✅ CORRECT key names
+CHUNK_SIZE=1000
+CHUNK_OVERLAP=200
+
+# ❌ WRONG — shell expansion does NOT work in .env files
+JWT_SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(48))")
+
+# ✅ CORRECT — set a real pre-generated secret
+JWT_SECRET_KEY=<run: python -c "import secrets; print(secrets.token_urlsafe(48))">
+```
+
+---
+
+## Migration Plan
+
+```bash
+# After adding RegulationDocument to db_models.py:
+alembic revision --autogenerate -m "add regulation_documents table"
+alembic upgrade head
+```
+
+---
+*Status Report Updated: 2026-05-22 (V3 Cloud-Native Architecture)*
+
 
 ## 🎯 **CURRENT STATUS: DATABASE PERSISTENCE FULLY IMPLEMENTED** ✅
 

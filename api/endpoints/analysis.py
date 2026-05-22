@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 # --- Standard Imports ---
+import json
 from typing import List, Optional # Added Optional
 import uuid # Added for UUID validation
 
@@ -41,6 +42,28 @@ logger = get_component_logger('api.endpoints.analysis')
 
 # --- Router ---
 router = APIRouter() # Prefix and tags are applied in api/main.py
+
+def parse_results(val) -> Optional[AnalysisResults]:
+    if not val:
+        return None
+    try:
+        if isinstance(val, str):
+            val = json.loads(val)
+        return AnalysisResults.model_validate(val)
+    except Exception as e:
+        logger.error(f"Error parsing AnalysisResults: {e}")
+        return None
+
+def parse_report_paths(val) -> Optional[ReportPaths]:
+    if not val:
+        return None
+    try:
+        if isinstance(val, str):
+            val = json.loads(val)
+        return ReportPaths.model_validate(val)
+    except Exception as e:
+        logger.error(f"Error parsing ReportPaths: {e}")
+        return None
 
 # --- Regulation Index Summary Endpoint ---
 from engine.regulation_manager import RegulationManager
@@ -181,7 +204,7 @@ async def get_analysis_status_endpoint(
         logger.warning(f"Invalid UUID format for analysis_id: {analysis_id}")
         raise HTTPException(status_code=400, detail="Invalid analysis ID format (must be UUID)")
 
-    analysis: Optional[Analysis] = await session.get(Analysis, analysis_id)
+    analysis: Optional[Analysis] = await session.get(Analysis, uuid.UUID(analysis_id))
 
     if not analysis:
         logger.warning(f"Analysis ID not found in DB: {analysis_id}")
@@ -197,8 +220,8 @@ async def get_analysis_status_endpoint(
         started_at=analysis.started_at,
         estimated_completion=None,
         completed_at=analysis.completed_at,
-        results=AnalysisResults(**analysis.results) if analysis.results else None,
-        report_paths=ReportPaths(**analysis.report_paths) if analysis.report_paths else None,
+        results=parse_results(analysis.results),
+        report_paths=parse_report_paths(analysis.report_paths),
         error=analysis.error
     )
 
@@ -220,7 +243,7 @@ async def get_analysis_results_endpoint(
         raise HTTPException(status_code=400, detail="Invalid analysis ID format (must be UUID)")
 
     # Query directly since AnalysisService.get_analysis_status is not available
-    analysis: Optional[Analysis] = await session.get(Analysis, analysis_id)
+    analysis: Optional[Analysis] = await session.get(Analysis, uuid.UUID(analysis_id))
 
     if not analysis:
         logger.warning(f"Analysis ID not found for results query: {analysis_id}")
@@ -239,8 +262,8 @@ async def get_analysis_results_endpoint(
         started_at=analysis.started_at,
         estimated_completion=None,
         completed_at=analysis.completed_at,
-        results=AnalysisResults(**analysis.results) if analysis.results else None,
-        report_paths=ReportPaths(**analysis.report_paths) if analysis.report_paths else None,
+        results=parse_results(analysis.results),
+        report_paths=parse_report_paths(analysis.report_paths),
         error=analysis.error
     )
 
@@ -264,8 +287,8 @@ async def list_analyses_endpoint(
             started_at=a.started_at,
             estimated_completion=None,
             completed_at=a.completed_at,
-            results=AnalysisResults(**a.results) if a.results else None,
-            report_paths=ReportPaths(**a.report_paths) if a.report_paths else None,
+            results=parse_results(a.results),
+            report_paths=parse_report_paths(a.report_paths),
             error=a.error
         ) for a in analyses
     ]

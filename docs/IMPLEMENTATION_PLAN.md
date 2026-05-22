@@ -1,7 +1,13 @@
-# CompliMate AI Engine - Implementation Plan
+# CompliMate AI Engine — Implementation Plan (V2, Historical)
 
-## Overview
-This document outlines the detailed implementation plan for hardening security, production infrastructure, pagination, job management, and performance optimization.
+> [!IMPORTANT]
+> **This document is superseded by the V3 Final Plan (2026-05-22).**
+> The V3 architecture moves to Pinecone-first cloud-native storage, a dedicated Admin Regulation API,
+> and zero-downtime hot-path isolation. See `implementation_plan_v3_final.md` in the brain artifacts
+> and the V3 entry in `docs/CHANGELOG.md` for the current active plan.
+
+## Overview (V2 — Historical Reference)
+This document outlines the V2 implementation plan for security hardening, production infrastructure, pagination, job management, and performance optimization. Many items below have since been completed. Refer to V3 for the current roadmap.
 
 ---
 

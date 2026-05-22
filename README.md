@@ -323,6 +323,7 @@ For more about **CompliMate**, see our landing page - complighana.com
 
 - Investor & Buyer Brief: docs/complimate-investor-and-buyer-brief.md
 - Developer Manual (end-to-end): docs/developer/README.md
+- Third-Party Services Setup Guide: [docs/THIRD_PARTY_SERVICES.md](file:///c:/Users/naeemaziz/Desktop/complimate-ai-engine/docs/THIRD_PARTY_SERVICES.md)
 
 ---
 

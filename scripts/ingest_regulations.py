@@ -49,7 +49,7 @@ async def main():
 
     logger.info("=== Starting Regulation Ingestion ===")
     logger.info(f"Regulations Directory: {settings.REGULATIONS_DIR}")
-    logger.info(f"Vector Store Type: {settings.VECTOR_STORE_TYPE}")
+    logger.info(f"Vector Store Provider: {settings.VECTOR_DB_PROVIDER}")
     logger.info(f"Force Rebuild: {args.force}")
 
     try:

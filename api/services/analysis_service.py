@@ -267,7 +267,10 @@ class AnalysisService:
 
                 regulation_index = self.regulation_manager.get_regulation_index()
                 if regulation_index is None:
-                    raise RuntimeError("Regulation index is not available. Cannot perform analysis.")
+                    raise RuntimeError(
+                        "The regulatory index is not ready. The system is still being initialized. "
+                        "Please try again in a few minutes. If this persists, contact your administrator."
+                    )
 
                 for node_idx, node in enumerate(contract_nodes):
                     contract_content = node.get_content()

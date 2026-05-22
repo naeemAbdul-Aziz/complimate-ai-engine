@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     API_RELOAD: bool = True
     LOG_LEVEL: str = "INFO"  # Added for logger compatibility
     API_LOG_LEVEL: str = "info"
+    CORS_ORIGINS: Any = ["*"]
     
     # Database Configuration
     DATABASE_URL: Optional[str] = None
@@ -90,9 +91,24 @@ class Settings(BaseSettings):
     PINECONE_INDEX_NAME: str = "complimate-regulations"
     PINECONE_NAMESPACE: str = "default"
     PINECONE_CLOUD: str = "aws"
-    
+
+    # --- V3: Admin Regulation API ---
+    # Secret key for protecting admin-only regulation management endpoints.
+    # Should be a long random hex string set in production .env.
+    ADMIN_API_KEY: Optional[str] = None
+
+    # --- V3: Cloud Storage (Phase 1 = local, Phase 2 = s3) ---
+    CLOUD_STORAGE_PROVIDER: str = "local"   # Options: "local" | "s3"
+    MAX_REGULATION_FILE_SIZE_MB: int = 50   # Max upload size for regulation PDFs
+    ALLOWED_FILE_EXTENSIONS: tuple = (".pdf", ".txt", ".docx")
+    AWS_S3_BUCKET_NAME: Optional[str] = None
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    AWS_REGION: str = "us-east-1"
+
     # Vector Store Configuration
     VECTOR_DB_PROVIDER: str = "chroma"  # Options: "chroma" or "pinecone"
+
     CHROMA_COLLECTION_NAME: str = "complimate_regulations"
     
     # Document Processing Configuration

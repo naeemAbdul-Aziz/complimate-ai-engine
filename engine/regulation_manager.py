@@ -86,7 +86,7 @@ class RegulationManager(LoggerMixin):
         self._load_metadata()
     
     def _initialize_storage(self) -> None:
-        """Initialize vector storage via provider abstraction only."""
+        """Initialize vector storage via provider abstraction only and load existing index."""
         try:
             provider = VectorStoreProvider()
             store = provider.get_vector_store()
@@ -94,6 +94,11 @@ class RegulationManager(LoggerMixin):
                 self.vector_store = store
                 self.using_persistent_storage = True
                 self.logger.info("Vector store initialized via provider")
+                try:
+                    self.regulation_index = VectorStoreIndex.from_vector_store(store)
+                    self.logger.info("Regulation index loaded from persistent vector store successfully.")
+                except Exception as index_err:
+                    self.logger.error(f"Failed to load index from persistent vector store: {index_err}")
             else:
                 self.logger.info("No vector store returned; using in-memory index")
         except Exception as e:
@@ -547,20 +552,27 @@ class RegulationManager(LoggerMixin):
             return "general"
     
     def get_regulation_index(self) -> Optional[VectorStoreIndex]:
-        """Get the current regulation index."""
+        """Get the current regulation index (read-only — never triggers a rebuild).
+
+        Returns the in-memory VectorStoreIndex if it has been loaded, or None if
+        the index has not yet been populated via the ingestion pipeline.
+
+        NOTE: This method intentionally does NOT call rebuild_index(). Triggering a
+        synchronous rebuild here would block the API request thread for 10–15 minutes
+        while OCR and embedding calls run. Index population is the sole responsibility
+        of the admin ingestion pipeline (scripts/ingest_regulations.py or
+        POST /api/v1/regulations/rebuild/async). Analysis callers must handle None
+        by returning a 503 to the user.
+        """
         if self.regulation_index is None:
-            self.logger.info("No regulation index found, initiating conditional rebuild...")
-            # Skip auto rebuild if OpenAI not configured (would fail anyway)
-            if not settings.OPENAI_API_KEY:
-                self.logger.warning("Skipping rebuild: OPENAI_API_KEY not configured")
-                return None
-            result = self.rebuild_index()
-            if result.get("status") == "cooldown":
-                self.logger.warning("Rebuild skipped due to cooldown; index remains unavailable")
-            elif result["files_processed"] == 0:
-                self.logger.warning("No regulations were indexed")
-        
+            self.logger.critical(
+                "Regulation index is not loaded. The API will return 503 to analysis "
+                "requests until the index is populated. To fix this, run: "
+                "  python scripts/ingest_regulations.py "
+                "or call: POST /api/v1/regulations/rebuild/async"
+            )
         return self.regulation_index
+
     
     def get_regulations_info(self) -> Dict[str, Any]:
         """Get information about all indexed regulations."""

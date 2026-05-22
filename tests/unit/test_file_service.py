@@ -28,19 +28,24 @@ class TestFileService:
     async def test_upload_valid_file(self, sample_pdf_file):
         """Test uploading a valid PDF file."""
         # Mock UploadFile
+        from unittest.mock import AsyncMock
         mock_file = Mock()
         mock_file.filename = "test.pdf"
         mock_file.content_type = "application/pdf"
         
         with open(sample_pdf_file, "rb") as f:
-            mock_file.read.return_value = f.read()
+            mock_file.read = AsyncMock(return_value=f.read())
         
         with patch('api.services.file_service.settings') as mock_settings:
             mock_settings.UPLOADS_DIR = Path(tempfile.mkdtemp())
             mock_settings.ALLOWED_FILE_EXTENSIONS = ('.pdf', '.txt', '.docx')
             mock_settings.MAX_FILE_SIZE_MB = 50
             
-            result = await self.file_service.upload_file(mock_file)
+            # Create a mock async session
+            mock_session = Mock()
+            mock_session.commit = AsyncMock()
+            
+            result = await self.file_service.upload_file(mock_file, mock_session)
             
             assert result["message"] == "File uploaded successfully"
             assert result["filename"] == "test.pdf"
@@ -50,13 +55,15 @@ class TestFileService:
     @pytest.mark.asyncio 
     async def test_upload_invalid_file_type(self):
         """Test uploading an invalid file type."""
+        from unittest.mock import AsyncMock
         mock_file = Mock()
         mock_file.filename = "test.exe"
         mock_file.content_type = "application/exe"
-        mock_file.read.return_value = b"fake content"
+        mock_file.read = AsyncMock(return_value=b"fake content")
         
+        mock_session = Mock()
         with pytest.raises(FileValidationError):
-            await self.file_service.upload_file(mock_file)
+            await self.file_service.upload_file(mock_file, mock_session)
     
     @pytest.mark.asyncio
     async def test_upload_no_filename(self):
@@ -64,10 +71,12 @@ class TestFileService:
         mock_file = Mock()
         mock_file.filename = None
         
+        mock_session = Mock()
         with pytest.raises(FileValidationError):
-            await self.file_service.upload_file(mock_file)
+            await self.file_service.upload_file(mock_file, mock_session)
     
-    def test_get_file_info_existing(self):
+    @pytest.mark.asyncio
+    async def test_get_file_info_existing(self):
         """Test getting file info for existing file."""
         # Add a test file record
         test_file_id = "test-123"
@@ -83,12 +92,13 @@ class TestFileService:
         
         self.file_service.uploaded_files[test_file_id] = test_record
         
-        result = self.file_service.get_file_info(test_file_id)
+        result = await self.file_service.get_file_info(test_file_id)
         assert result == test_record
     
-    def test_get_file_info_nonexistent(self):
+    @pytest.mark.asyncio
+    async def test_get_file_info_nonexistent(self):
         """Test getting file info for nonexistent file."""
-        result = self.file_service.get_file_info("nonexistent")
+        result = await self.file_service.get_file_info("nonexistent")
         assert result is None
     
     def test_validate_file_exists_false(self):
