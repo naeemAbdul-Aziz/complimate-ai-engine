@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     API_HOST: str = "127.0.0.1"
     API_PORT: int = 8000
     API_RELOAD: bool = True
+    LOG_LEVEL: str = "INFO"  # Added for logger compatibility
     API_LOG_LEVEL: str = "info"
     
     # Database Configuration
@@ -57,6 +58,14 @@ class Settings(BaseSettings):
     ENABLE_CELERY: bool = False
     CELERY_BROKER_URL: Optional[str] = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: Optional[str] = "redis://localhost:6379/0"
+
+    # Directory Configuration
+    BASE_DIR: Path = Path(__file__).resolve().parent.parent
+    REGULATIONS_DIR: Path = BASE_DIR / "data" / "regulations"
+    CONTRACTS_DIR: Path = BASE_DIR / "data" / "contracts"
+    VECTOR_STORE_DIR: Path = BASE_DIR / "chroma"
+    REPORTS_DIR: Path = BASE_DIR / "reports"
+    UPLOADS_DIR: Path = BASE_DIR / "uploads"
 
     # OpenAI Configuration
     OPENAI_API_KEY: Optional[str] = None
@@ -75,71 +84,38 @@ class Settings(BaseSettings):
     SECONDARY_REASONING_MODEL_FAST: str = "gpt-4o"
     # Adaptive refinement controls
     REFINEMENT_TIMEOUT_RATIO_MAX: float = 0.5  # if >50% chunks timeout/error within window, auto-disable temporarily
-    REFINEMENT_WINDOW: int = 10               # number of recent chunks to evaluate
-    REFINEMENT_MIN_OBSERVATIONS: int = 5      # minimum chunks observed before making disable decision
-    REFINEMENT_COOLDOWN_SECONDS: int = 600    # how long to disable refinement when tripped
-    
-    # File paths
-    BASE_DIR: Path = Path(__file__).resolve().parent.parent
-    DATA_DIR: Path = BASE_DIR / "data"
-    UPLOADS_DIR: Path = BASE_DIR / "uploads"
-    REPORTS_DIR: Path = BASE_DIR / "reports"
-    REGULATIONS_DIR: Path = DATA_DIR / "regulations"
-    CONTRACT_FOLDER: Path = DATA_DIR / "contracts"
-    VECTOR_STORE_DIR: Path = BASE_DIR / "vector_store"
-    
-    # Legacy single regulation file
-    REGULATION_FILE: Path = REGULATIONS_DIR / "li_2204.pdf"
-    
-    # Analysis Configuration
-    MAX_CONCURRENT_ANALYSES: int = 5
-    ANALYSIS_TIMEOUT_MINUTES: int = 30
-    HYBRID_SEARCH_TOP_K: int = 5
-    
-    # Vector Storage Configuration
-    USE_PERSISTENT_STORAGE: bool = True
-    VECTOR_STORE_TYPE: str = "chroma"
-    CHROMA_COLLECTION_NAME: str = "ghana_regulations"
-    VECTOR_DB_PROVIDER: str = "chroma"
+    # Pinecone Configuration
     PINECONE_API_KEY: Optional[str] = None
+    PINECONE_REGION: str = "us-east-1"
     PINECONE_INDEX_NAME: str = "complimate-regulations"
     PINECONE_NAMESPACE: str = "default"
     PINECONE_CLOUD: str = "aws"
-    PINECONE_REGION: str = "us-east-1"
-    # If >0, force index dimension; otherwise auto-infer from embedding model
-    PINECONE_INDEX_DIMENSION: int = 0
-    # Only used for HuggingFace fallback dimension inference
-    HUGGINGFACE_EMBEDDING_DIM: int = 384
     
-    # Multi-regulation Configuration
-    REGULATION_CATEGORIES: Dict[str, Any] = {
-        "petroleum": ["li_2204.pdf"],
-    }
+    # Vector Store Configuration
+    VECTOR_DB_PROVIDER: str = "chroma"  # Options: "chroma" or "pinecone"
+    CHROMA_COLLECTION_NAME: str = "complimate_regulations"
     
-    # Regulation Processing
+    # Document Processing Configuration
     CHUNK_SIZE: int = 1000
     CHUNK_OVERLAP: int = 200
-    ENABLE_METADATA_EXTRACTION: bool = True
-    # PDF Extraction Settings
+    HYBRID_SEARCH_TOP_K: int = 5
+    
+    # PDF Processing Configuration
     ENABLE_PDF_OCR: bool = False
     OCR_LANG: str = "eng"
     PDF_TEXT_MIN_ALPHA_RATIO: float = 0.2
-    PDF_FILTER_MIN_LINE_LEN: int = 20
-    PDF_PROGRESS_LOG_EVERY: int = 10
+    PDF_FILTER_MIN_LINE_LEN: int = 12
+    PDF_PROGRESS_LOG_EVERY: int = 5
     
-    # File Upload Configuration
-    MAX_FILE_SIZE_MB: int = 50
-    ALLOWED_FILE_EXTENSIONS: tuple = ('.pdf', '.txt', '.docx')
+    # Regulation Categories
+    REGULATION_CATEGORIES: Dict[str, List[str]] = {
+        "petroleum": [],
+        "mining": [],
+        "environmental": [],
+        "labor": [],
+        "general": []
+    }
     
-    # Logging Configuration
-    LOG_LEVEL: str = "INFO"
-    LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    
-    # Security Configuration
-    CORS_ORIGINS: List[str] = ["*"]
-    RATE_LIMIT_REQUESTS: int = 100
-    RATE_LIMIT_WINDOW: int = 3600
-    REQUIRE_API_KEY: bool = False
     API_KEY: Optional[str] = None
     
     # JWT Authentication

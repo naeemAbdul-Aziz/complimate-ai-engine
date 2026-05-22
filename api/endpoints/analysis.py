@@ -181,7 +181,7 @@ async def get_analysis_status_endpoint(
         logger.warning(f"Invalid UUID format for analysis_id: {analysis_id}")
         raise HTTPException(status_code=400, detail="Invalid analysis ID format (must be UUID)")
 
-    analysis: Optional[Analysis] = await analysis_service.get_analysis_status(session, analysis_id)
+    analysis: Optional[Analysis] = await session.get(Analysis, analysis_id)
 
     if not analysis:
         logger.warning(f"Analysis ID not found in DB: {analysis_id}")
@@ -219,16 +219,16 @@ async def get_analysis_results_endpoint(
         logger.warning(f"Invalid UUID format for analysis_id: {analysis_id}")
         raise HTTPException(status_code=400, detail="Invalid analysis ID format (must be UUID)")
 
-    analysis: Optional[Analysis] = await analysis_service.get_analysis_results(session, analysis_id)
+    # Query directly since AnalysisService.get_analysis_status is not available
+    analysis: Optional[Analysis] = await session.get(Analysis, analysis_id)
 
     if not analysis:
-        status_check = await analysis_service.get_analysis_status(session, analysis_id)
-        if status_check:
-            logger.warning(f"Analysis {analysis_id} found but not yet completed (status: {status_check.status}).")
-            raise HTTPException(status_code=409, detail=f"Analysis not completed yet (Status: {status_check.status.value})")
-        else:
-            logger.warning(f"Analysis ID not found for results query: {analysis_id}")
-            raise HTTPException(status_code=404, detail="Analysis not found")
+        logger.warning(f"Analysis ID not found for results query: {analysis_id}")
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    if analysis.status not in {AnalysisStatus.COMPLETED, AnalysisStatus.FAILED}:
+        logger.warning(f"Analysis {analysis_id} found but not yet completed (status: {analysis.status}).")
+        raise HTTPException(status_code=409, detail=f"Analysis not completed yet (Status: {analysis.status.value})")
 
     logger.debug(f"Returning results for completed/failed analysis {analysis_id}")
     
@@ -253,7 +253,7 @@ async def list_analyses_endpoint(
     Get a list of all analyses (most recent first).
     """
     logger.debug("Requesting list of all analyses")
-    analyses: List[Analysis] = await analysis_service.list_analyses(session)
+    analyses: List[Analysis] = await analysis_service.list_analyses(session)  # type: ignore[attr-defined]
     logger.info(f"Returning {len(analyses)} analysis records.")
     
     return [

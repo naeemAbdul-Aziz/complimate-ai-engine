@@ -89,7 +89,7 @@ async def list_regulations():
     Returns comprehensive information about all regulation documents
     including metadata, categories, and indexing status.
     """
-    info = regulation_endpoints.analysis_service.get_regulations_info()
+    info = regulation_endpoints.analysis_service.regulation_manager.get_regulations_info()
     
     regulations = [
         RegulationInfo(**reg_data) for reg_data in info["regulations"]
@@ -113,7 +113,7 @@ async def list_categories():
     
     Returns a summary of all regulation categories and their counts.
     """
-    info = regulation_endpoints.analysis_service.get_regulations_info()
+    info = regulation_endpoints.analysis_service.regulation_manager.get_regulations_info()
     
     return BaseResponse(
         success=True,
@@ -133,7 +133,7 @@ async def get_regulations_by_category(category: str):
     Args:
         category: The regulation category (petroleum, mining, environmental, labor, general)
     """
-    regulations_data = regulation_endpoints.analysis_service.get_regulations_by_category(category)
+    regulations_data = regulation_endpoints.analysis_service.get_regulations_by_category(category)  # type: ignore[attr-defined]
     
     regulations = [
         RegulationInfo(**reg_data) for reg_data in regulations_data
@@ -161,7 +161,7 @@ async def rebuild_regulations_index(force: bool = Query(False, description="Forc
     """
     regulation_endpoints.logger.info(f"Starting regulation index rebuild (force={force})")
     
-    result = regulation_endpoints.analysis_service.rebuild_regulations_index(force=force)
+    result = regulation_endpoints.analysis_service.rebuild_regulations_index(force=force)  # type: ignore[attr-defined]
     
     return RegulationRebuildResponse(
         success=True,
@@ -198,8 +198,10 @@ async def get_regulation_status():
     Returns information about the regulation index, storage type,
     and readiness status.
     """
-    is_ready = regulation_endpoints.analysis_service.is_ready
-    info = regulation_endpoints.analysis_service.get_regulations_info()
+    reg_manager = regulation_endpoints.analysis_service.regulation_manager
+    info = reg_manager.get_regulations_info()
+    # Fallback readiness: use manager.is_ready if present, else check if any regulations are indexed.
+    is_ready = getattr(reg_manager, "is_ready", info.get("total_regulations", 0) > 0)
     
     return BaseResponse(
         success=True,

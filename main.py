@@ -19,7 +19,9 @@ from engine.violation import create_violation_prompt, process_batch_violation_re
 from utils.cache import get_json, set_json, key_hash
 
 # Import reporting functions
+# Import reporting functions
 from reporting.report_generator import generate_report, generate_text_report, generate_pdf_report
+from utils.file_utils import generate_report_filename
 
 # --- Production Logging Configuration ---
 from config.logger import get_component_logger, log_performance
@@ -27,7 +29,6 @@ logger = get_component_logger('main')
 # -----------------------------------
 
 # Constants
-REGULATION_FILE = "data/regulations/li_2204.pdf"
 CONTRACT_FOLDER = "data/contracts"
 REPORTS_FOLDER = "reports"
 
@@ -151,12 +152,12 @@ async def main():
         logger.info("Loading regulation index...")
         reg_manager = RegulationManager()
         
-        # Try to load the index. We do NOT auto-rebuild here to prevent startup delays.
-        regulation_index = reg_manager.get_regulation_index(auto_rebuild=False)
+        # Try to load the index. It will auto-rebuild if empty.
+        regulation_index = reg_manager.get_regulation_index()
         
         if not regulation_index:
             logger.critical("Failed to load regulation index.")
-            logger.critical("Please run 'python scripts/ingest_regulations.py' to build the index first.")
+            logger.critical("Please run 'python scripts/rebuild_regulations_index.py' to build the index first.")
             return False
             
         logger.info("Regulation index loaded successfully.")
@@ -387,7 +388,7 @@ async def main():
             report_data = {
                 "contract_name": contract_file_name,
                 "contract_path": contract_file_path,
-                "regulation_file": REGULATION_FILE,
+                "regulation_file": "All Indexed Regulations", # Default for now
                 "analysis_timestamp": datetime.datetime.now().isoformat(),
                 "total_prompts_sent": len(tasks),
                 "successful_responses": successful_responses_count,
@@ -406,16 +407,19 @@ async def main():
             }
 
             # Define report paths
-            json_report_path = os.path.join(REPORTS_FOLDER, f"{base_report_name}_report.json")
-            txt_report_path = os.path.join(REPORTS_FOLDER, f"{base_report_name}_report.txt")
-            pdf_report_path = os.path.join(REPORTS_FOLDER, f"{base_report_name}_report.pdf") # PDF Path
+            # Use smart filename generation
+            json_filename = generate_report_filename(contract_file_name, "json")
+            txt_filename = generate_report_filename(contract_file_name, "txt")
+            pdf_filename = generate_report_filename(contract_file_name, "pdf")
+            
+            json_report_path = os.path.join(REPORTS_FOLDER, json_filename)
+            txt_report_path = os.path.join(REPORTS_FOLDER, txt_filename)
+            pdf_report_path = os.path.join(REPORTS_FOLDER, pdf_filename)
 
             # Generate all reports
             generate_report(report_data, json_report_path) # JSON
             generate_text_report(report_data, txt_report_path) # Text
             generate_pdf_report(report_data, pdf_report_path) # PDF (function logs errors internally)
-
-            logger.info(f"Finished processing contract: {contract_file_name}")
 
         # After processing all contracts, log overall completion
         total_duration = time.time() - start_time

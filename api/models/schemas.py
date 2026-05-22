@@ -241,7 +241,7 @@ class AnalysisResultsResponse(BaseModel):
         json_schema_extra = {
             "example": {
                 "contract_name": "sample-contract.pdf",
-                "regulation_file": "data/regulations/li_2204.pdf",
+                "regulation_file": "data/regulations/regulation_doc.pdf",
                 "analysis_timestamp": "2025-09-29T10:40:00.123456",
                 "total_prompts_sent": 25,
                 "successful_responses": 24,

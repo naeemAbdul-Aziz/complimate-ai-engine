@@ -212,18 +212,46 @@ class RegulationManager(LoggerMixin):
         return hash_md5.hexdigest()
     
     def _extract_pdf_text(self, file_path: Path) -> str:
-        """Extract text from PDF with OCR support for scanned documents."""
+        """Extract text from PDF; auto-attempt OCR per-document if initial extraction empty.
+        
+        FAANG-level Strategy:
+        1. Try standard extraction (respect global ENABLE_PDF_OCR setting)
+        2. If empty and global OCR disabled, attempt on-demand OCR for this document
+        3. Return stripped text (may be empty for truly unreadable PDFs)
+        """
         try:
-            # Use the OCR-enabled extraction from utils/pdf_utils.py
+            # First pass (respect global ENABLE_PDF_OCR setting)
             text = extract_pdf_text(
                 file_path,
-                enable_ocr=getattr(settings, "ENABLE_PDF_OCR", True),
+                enable_ocr=getattr(settings, "ENABLE_PDF_OCR", False),
                 ocr_lang=getattr(settings, "OCR_LANG", "eng"),
                 min_alpha_ratio=getattr(settings, "PDF_TEXT_MIN_ALPHA_RATIO", 0.2),
                 min_line_len=getattr(settings, "PDF_FILTER_MIN_LINE_LEN", 12),
                 logger=self.logger,
             )
-            return text.strip() if text else ""
+            if text.strip():
+                return text.strip()
+            
+            # Auto on-demand OCR if disabled globally but text empty
+            if not getattr(settings, "ENABLE_PDF_OCR", False):
+                try:
+                    self.logger.info(f"Attempting on-demand OCR for {file_path.name} (initial extraction empty).")
+                    ocr_text = extract_pdf_text(
+                        file_path,
+                        enable_ocr=True,
+                        ocr_lang=getattr(settings, "OCR_LANG", "eng"),
+                        min_alpha_ratio=getattr(settings, "PDF_TEXT_MIN_ALPHA_RATIO", 0.2),
+                        min_line_len=getattr(settings, "PDF_FILTER_MIN_LINE_LEN", 12),
+                        logger=self.logger,
+                    )
+                    if ocr_text.strip():
+                        self.logger.info(f"✓ OCR succeeded for {file_path.name}.")
+                        return ocr_text.strip()
+                    else:
+                        self.logger.warning(f"✗ OCR produced no text for {file_path.name}.")
+                except Exception as ocr_err:
+                    self.logger.warning(f"On-demand OCR failed for {file_path.name}: {ocr_err}")
+            return ""
             
         except Exception as e:
             self.logger.error(f"Failed to extract text from {file_path}: {e}")
@@ -262,7 +290,16 @@ class RegulationManager(LoggerMixin):
             if file_path.is_file():
                 regulation_files.append(file_path)
         
-        self.logger.info(f"Discovered {len(regulation_files)} regulation files")
+        # Sort for deterministic processing order
+        regulation_files.sort(key=lambda p: p.name.lower())
+        
+        if regulation_files:
+            self.logger.info(f"Discovered {len(regulation_files)} regulation files (recursive search, including subfolders):")
+            for f in regulation_files:
+                self.logger.info(f"  - {f}")
+        else:
+            self.logger.info("No regulation files found during recursive search.")
+        
         return regulation_files
     
     def should_reindex_file(self, file_path: Path) -> bool:
@@ -284,10 +321,27 @@ class RegulationManager(LoggerMixin):
         try:
             self.logger.info(f"Indexing regulation file: {file_path}")
             
-            # Extract text
+            # Extract text (with auto-OCR fallback)
             text = self._extract_pdf_text(file_path)
             if not text:
-                raise ValueError(f"No text extracted from {file_path}")
+                self.logger.warning(f"No extractable text in {file_path}; recording metadata only.")
+                # Create metadata-only entry for scanned/image PDFs
+                file_stats = file_path.stat()
+                metadata = RegulationMetadata(
+                    file_path=str(file_path),
+                    file_name=file_path.name,
+                    category=category,
+                    title=file_path.stem.replace("_", " ").replace("-", " ").title(),
+                    file_size=file_stats.st_size,
+                    file_hash=self._calculate_file_hash(file_path),
+                    indexed_date=datetime.now().isoformat(),
+                    description="Scanned or image-based PDF; no text extracted",
+                    tags=[],
+                    chunk_count=0
+                )
+                self.regulations_metadata[file_path.name] = metadata
+                self._save_metadata()
+                return metadata
             
             # Extract metadata
             auto_metadata = self._extract_metadata_from_text(text, file_path.name)
@@ -481,7 +535,7 @@ class RegulationManager(LoggerMixin):
                 return category
         
         # Auto-categorize based on filename
-        if "petroleum" in file_name_lower or "li_2204" in file_name_lower:
+        if "petroleum" in file_name_lower:
             return "petroleum"
         elif "mining" in file_name_lower:
             return "mining"
